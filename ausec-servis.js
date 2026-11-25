@@ -3,7 +3,7 @@ const http = require("http");
 const fs = require("fs");
 const path = require("path");
 const { randomUUID } = require("crypto");
-const WebSocket = require("ws");
+
 
 const DIZIN = __dirname;
 const AYAR_YOL = path.join(DIZIN, "ayarlar.json");
@@ -98,7 +98,7 @@ if (process.argv.includes("--guncelle")) {
     });
   return;
 }
-
+const WebSocket = require("ws");
 // Komut satırından geçici Chatroom/Kanal ID verildiyse üzerine yaz
 const cliArgs = process.argv.slice(2).filter((a) => !a.startsWith("--"));
 if (cliArgs[0] && /^\d+$/.test(cliArgs[0])) AYAR.chatroom_id = cliArgs[0];
