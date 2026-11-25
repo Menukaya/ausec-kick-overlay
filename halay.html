@@ -3,6 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <title>Kick Halay - Webcam & Chatbox Boyutu</title>
+<!--
+  URL Ayarları (? / & ile):
+    temiz=1   Sağ üstteki test panelini gizler (OBS için)
+    sure=90   Etkileşim yoksa kaç saniye sonra kapansın (varsayılan: 90)
+    hep=1     Etkileşim olmasa da sahneyi hep açık tutar
+-->
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
@@ -73,15 +79,24 @@
   }
   .btn-ikincil { background: #2a2a35; color: #fff; border: 1px solid #555; }
 
-  /* KOMPAKT WEBCAM / CHATBOX BOYUTU (480x210px - Taşma Yapmaz) */
+  /* KOMPAKT WEBCAM / CHATBOX BOYUTU (Varsayılan gizli, etkileşimle açılır) */
   #sahne-kapsayici {
     position: fixed;
     bottom: 8px;
     left: 50%;
-    transform: translateX(-50%);
+    transform: translateX(-50%) translateY(28px) scale(0.96);
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.6s ease, transform 0.6s ease, visibility 0s linear 0.6s;
     width: 480px;
     height: 210px;
     pointer-events: none;
+  }
+  #sahne-kapsayici.aktif {
+    opacity: 1;
+    visibility: visible;
+    transform: translateX(-50%) translateY(0) scale(1);
+    transition: opacity 0.6s ease, transform 0.6s ease, visibility 0s;
   }
 
   /* Kompakt Yarı Saydam Platform */
@@ -126,7 +141,6 @@
   }
   .muzisyen { display: flex; flex-direction: column; align-items: center; position: relative; }
 
-  /* Net ve Okunaklı Orkestra İsimleri (Bulanıklaşmaz) */
   .muzisyen-etiket {
     background: linear-gradient(135deg, #ffb700, #ff6a00);
     color: #000;
@@ -147,7 +161,6 @@
     text-shadow: 1px 1px 2px #000;
   }
 
-  /* Orkestra SVG Boyutu Küçültüldü (52x64) */
   .karakter-govde {
     width: 52px;
     height: 64px;
@@ -186,7 +199,6 @@
     align-items: center;
     transition: left 0.45s ease, top 0.45s ease, opacity 0.35s ease;
   }
-  /* Halaycı SVG boyutu kompakt (38x53) ama yazılar tam net */
   .halayci svg { width: 38px; height: 53px; overflow: visible; display: block; }
 
   .izleyici-isim {
@@ -289,6 +301,7 @@
   <div class="btn-grup">
     <button class="btn" onclick="manuelHalayEkle()">+ !halay</button>
     <button class="btn btn-ikincil" onclick="kalabalikEkle()">+5 Kişi</button>
+    <button class="btn btn-ikincil" onclick="sahneyiTemizle()">Temizle</button>
   </div>
   <div class="btn-grup">
     <button class="btn btn-ikincil" onclick="tempoDegistir(0.32, '⚡ Hızlı')">⚡ Hızlan</button>
@@ -341,12 +354,12 @@
   // =========================================================================
   // 1. AYARLAR
   // =========================================================================
-  const VARSAYILAN_KANAL_ADI = "Ausec";
-  const VARSAYILAN_CHATROOM_ID = "25980531";
-  const MAX_HALAYCI = 24; // Kompakt kutuda üst üste binmemesi için ideal sınır
-  const HALAYDA_KALMA_SURESI = 120000;
-
   const urlParams = new URLSearchParams(window.location.search);
+  const MAX_HALAYCI = 24;
+  const SURE_SN = Math.max(15, parseInt(urlParams.get("sure") || "90", 10));
+  const HALAYDA_KALMA_SURESI = SURE_SN * 1000;
+  const HEP_ACIK = urlParams.get("hep") === "1";
+
   if (urlParams.get("temiz") === "1") {
     document.getElementById("test-paneli").style.display = "none";
   }
@@ -484,12 +497,40 @@
   document.getElementById("svg-elfsec").innerHTML = elfsecSvg();
 
   // =========================================================================
-  // 3. KOMPAKT YARIM DAİRE (480px KUTUYA TAM SIĞAN YAY)
+  // 3. OTOMATİK GÖRÜNÜRLÜK + HALAY HALKASI
   // =========================================================================
   const halaycilar = [];
   const halkaAlani = document.getElementById("halay-halkasi");
+  const sahneKapsayici = document.getElementById("sahne-kapsayici");
+  let sahneGizleTimer = null;
+
+  function sahneGoster() {
+    clearTimeout(sahneGizleTimer);
+    sahneKapsayici.classList.add("aktif");
+  }
+
+  function sahneKontrolEt() {
+    if (HEP_ACIK) return;
+    if (halaycilar.length === 0) {
+      clearTimeout(sahneGizleTimer);
+      sahneGizleTimer = setTimeout(() => {
+        if (halaycilar.length === 0 && !HEP_ACIK) {
+          sahneKapsayici.classList.remove("aktif");
+          tempoDegistir(0.55, "🥁 Normal", true);
+        }
+      }, 1500);
+    }
+  }
+
+  function sureleriUzat() {
+    halaycilar.forEach(kisi => {
+      clearTimeout(kisi.zamanlayici);
+      kisi.zamanlayici = setTimeout(() => halaydanCikar(kisi.kullaniciAdi), HALAYDA_KALMA_SURESI);
+    });
+  }
 
   function halayaKatil(kullaniciAdi) {
+    sahneGoster();
     const mevcut = halaycilar.find(h => h.kullaniciAdi.toLowerCase() === kullaniciAdi.toLowerCase());
     if (mevcut) {
       clearTimeout(mevcut.zamanlayici);
@@ -517,9 +558,16 @@
     setTimeout(() => { if (kisi.element.parentNode) halkaAlani.removeChild(kisi.element); }, 350);
     halaycilar.splice(index, 1);
     halkayiYenidenDiz();
+    sahneKontrolEt();
   }
 
-  // 480x210 kutunun dışına taşmayan daraltılmış elips yay (a: 205, b: 48, merkez: 240, 134)
+  function sahneyiTemizle() {
+    while (halaycilar.length) {
+      halaydanCikar(halaycilar[0].kullaniciAdi);
+    }
+    sahneKontrolEt();
+  }
+
   const YAY = (() => {
     const a = 205, b = 48, cx = 240, cy = 134, t = [{ s: 0, th: 0 }];
     let s = 0, px = cx + a, py = cy;
@@ -550,15 +598,12 @@
     const aralik = Math.min(28, (YAY.L - 24) / Math.max(n - 1, 1));
     const s0 = (YAY.L - aralik * (n - 1)) / 2;
     const pts = halaycilar.map((_, i) => yayNokta(s0 + i * aralik));
-
-    // SVG 60px yerine 38px genişliğinde çizildiği için kol birleştirme ölçeği (60/38 = 1.58)
     const olcek = 60 / 38;
 
     halaycilar.forEach((kisi, i) => {
       const p = pts[i], dugum = kisi.element, sv = dugum.querySelector("svg"), isim = dugum.querySelector(".izleyici-isim");
       dugum.classList.toggle("halaybasi", i === 0);
       isim.innerText = (i === 0 ? "🧣 " : "") + kisi.kullaniciAdi;
-      // İsimlerin birbirine girmemesi için 5 kişiden sonra zikzak (üst-alt) dizilim
       isim.style.marginBottom = (n > 5 && i % 2) ? "15px" : "2px";
       dugum.style.left = p.x + "px";
       dugum.style.top = p.y + "px";
@@ -573,23 +618,26 @@
   }
 
   let zeybekAcik = false;
-  function tempoDegistir(saniye, modAdi) {
+  function tempoDegistir(saniye, modAdi, sessiz = false) {
     zeybekAcik = false;
     document.body.classList.remove("zeybek-modu");
     document.documentElement.style.setProperty("--ritim-suresi", `${saniye}s`);
     document.getElementById("aktif-mod").innerText = modAdi;
     halkayiYenidenDiz();
+    if (!sessiz && halaycilar.length > 0) sureleriUzat();
   }
 
   function zeybekModuAc() {
+    if (halaycilar.length === 0 && !HEP_ACIK) return;
     zeybekAcik = true;
     document.body.classList.add("zeybek-modu");
     document.getElementById("aktif-mod").innerText = "🦅 Zeybek";
     halkayiYenidenDiz();
+    sureleriUzat();
   }
 
   // =========================================================================
-  // 4. KICK SOHBET (yerel aktarıcı: kick-relay.js)
+  // 4. KICK SOHBET (yerel servis: ws://localhost:8787)
   // =========================================================================
   let aktifWs = null, yenidenZamanlayici = null;
   const VARSAYILAN_RELAY = urlParams.get("relay") || "ws://localhost:8787";
@@ -603,17 +651,20 @@
     const panel = document.getElementById("test-paneli");
     panel.insertBefore(logKutusu, panel.children[1]);
   }
-  function logYaz(mesaj, renk = "#facc15") { console.log("[Kick]", mesaj); logKutusu.style.color = renk; logKutusu.innerText = mesaj; }
+  function logYaz(mesaj, renk = "#facc15") {
+    console.log("[Kick]", mesaj);
+    if (logKutusu) { logKutusu.style.color = renk; logKutusu.innerText = mesaj; }
+  }
 
   function komutIsle(kullanici, mesaj, rozetli) {
     if (mesaj === "!halay" || mesaj === "halay" || mesaj.startsWith("!halay ")) halayaKatil(kullanici);
-    else if (mesaj === "!hizlan" || mesaj === "!horon") tempoDegistir(0.30, "⚡ Hızlı");
-    else if (mesaj === "!yavas" || mesaj === "!normal") tempoDegistir(0.55, "🥁 Normal");
-    else if (mesaj === "!zeybek") zeybekModuAc();
+    else if (mesaj === "!hizlan" || mesaj === "!horon") { if (halaycilar.length > 0) tempoDegistir(0.30, "⚡ Hızlı"); }
+    else if (mesaj === "!yavas" || mesaj === "!normal") { if (halaycilar.length > 0) tempoDegistir(0.55, "🥁 Normal"); }
+    else if (mesaj === "!zeybek") { if (halaycilar.length > 0) zeybekModuAc(); }
     else if (mesaj === "!mendil") {
-      if (!rozetli) return;
+      if (!rozetli || halaycilar.length === 0) return;
       const idx = halaycilar.findIndex(h => h.kullaniciAdi.toLowerCase() === kullanici.toLowerCase());
-      if (idx > 0) { const [kisi] = halaycilar.splice(idx, 1); halaycilar.unshift(kisi); halkayiYenidenDiz(); }
+      if (idx > 0) { const [kisi] = halaycilar.splice(idx, 1); halaycilar.unshift(kisi); halkayiYenidenDiz(); sureleriUzat(); }
     }
   }
 
@@ -632,17 +683,20 @@
     aktifWs.onopen = () => {
       durumEtiketi.innerText = "Bağlı";
       durumEtiketi.style.background = "#16a34a";
-      logYaz("Aktarıcıya bağlandı, Kick bekleniyor...", "#4ade80");
+      logYaz("Servise bağlandı, Kick bekleniyor...", "#4ade80");
     };
     aktifWs.onmessage = (e) => {
       let p; try { p = JSON.parse(e.data); } catch { return; }
       if (p.durum) { logYaz(p.durum, p.hata ? "#f87171" : "#4ade80"); return; }
-      if (p.u) { logYaz(`💬 ${p.u}: ${p.m}`, "#a78bfa"); komutIsle(p.u, p.m.trim().toLowerCase(), p.r); }
+      if (p.u && p.m !== undefined) {
+        logYaz(`💬 ${p.u}: ${p.m}`, "#a78bfa");
+        komutIsle(p.u, String(p.m).trim().toLowerCase(), Boolean(p.r));
+      }
     };
     aktifWs.onclose = () => {
       durumEtiketi.innerText = "Yok";
       durumEtiketi.style.background = "#dc2626";
-      logYaz("kick-relay.js çalışmıyor. kick-baslat.bat dosyasını açın.", "#f87171");
+      logYaz("Servis kapalı. baslat.bat dosyasını açın.", "#f87171");
       yenidenZamanlayici = setTimeout(kanalaBaglan, 3000);
     };
   }
@@ -669,6 +723,7 @@
 
   window.addEventListener("DOMContentLoaded", () => {
     document.getElementById("kanal-input").value = VARSAYILAN_RELAY;
+    if (HEP_ACIK) sahneGoster();
     kanalaBaglan();
   });
 </script>
