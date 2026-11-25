@@ -1,0 +1,12 @@
+{
+  "surum": "1.0.0",
+  "not": "Ilk surum - Halay, 6 haritali Topik ve 100 AUSEC Para Yagmuru",
+  "dosyalar": [
+    "ausec-servis.js",
+    "halay.html",
+    "topik.html",
+    "para-yagmuru.html",
+    "ausec ama para.jpg",
+    "README.txt"
+  ]
+}
