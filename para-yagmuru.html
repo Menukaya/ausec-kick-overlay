@@ -4,102 +4,70 @@
 <meta charset="utf-8">
 <title>AUSEC Para Yağmuru – Kick</title>
 <!--
-  KULLANIM (OBS):
-  1) "ausec ama para.jpg" (veya "ausec-para.jpg") bu HTML dosyasıyla aynı klasörde olsun
-  2) Aktarıcı servis (ws://localhost:8787) açık olsun
-  3) OBS > Kaynaklar > + > Tarayıcı, Genişlik 1920, Yükseklik 1080
-  4) Bu kaynağı sahnede EN ÜSTE koy (boşken tamamen şeffaftır)
-
-  Ne zaman yağar?
-   - Kick abonelik / hediye abonelik / KICKs / bağış / takip olayları aktarıcıdan gelirse otomatik
-   - Bot mesajları: varsayılan olarak Botrix / KickBot mesajlarını da dinler
-   - Yayıncı veya moderatör sohbete yazarsa:
-       !para Ahmet           -> "Ahmet, teşekkürler!" banknot yağmuru
-       !para Ahmet 100       -> Ahmet için 100 TL bağış yağmuru
-       !abone Ahmet          -> abone yağmuru
-       !hediye Ahmet 5       -> 5 hediye abonelik yağmuru
-       !kicks Ahmet 250      -> 250 KICKs yağmuru
-       !takip Ahmet          -> sağ üstte takip kartı + mini para patlaması
-
-  URL Ayarları (? / & ile):
-    test=1       Her 7 saniyede bir örnek para yağmuru + takip kartı (deneme)
-    ses=1        Bildirim başlarken para/kasa sesi çalar
-    debug=1      Sol altta aktarıcı olay kayıtlarını gösterir
-    botlar=botrix,kickbot
-    gorsel=ausec-para.jpg   (isteğe bağlı özel görsel yolu)
+  Klasörde olması gereken görseller:
+    abone.jpg, hediyeabone.jpg, kicks.jpg, bagis.jpg (veya bagıs.jpg), ausec ama para.jpg
+  OBS: http://localhost:8787/para?ses=1  (1920 x 1080, en üst katman)
+  URL: ?test=1 (deneme), &ses=1 (para sesi), &debug=1 (log)
 -->
-<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@600;700&family=Inter:wght@700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;800&family=Oswald:wght@600;700&family=Inter:wght@700;800&display=swap" rel="stylesheet">
 <style>
   html,body{margin:0;padding:0;background:transparent;overflow:hidden;width:100vw;height:100vh}
   canvas{position:fixed;inset:0}
 
-  /* Ana Bildirim Bannerı (100 AUSEC Banknot Teması) */
+  /* 4 Özel Banknot Alert Kartı */
   #banner{
-    position:fixed;top:38px;left:50%;
-    transform:translate(-50%,-185%) rotate(-1deg);
-    transition:transform .58s cubic-bezier(.18,1.35,.36,1);
-    min-width:600px;max-width:1280px;text-align:center;
-    filter:drop-shadow(0 16px 28px rgba(0,0,0,.65));
+    position:fixed;top:30px;left:50%;
+    width:800px;max-width:92vw;
+    transform:translate(-50%,-165%) rotate(-1deg) scale(.94);
+    opacity:0;
+    transition:transform .6s cubic-bezier(.18,1.32,.36,1), opacity .35s ease;
+    filter:drop-shadow(0 18px 34px rgba(0,0,0,.74));
+    pointer-events:none;
   }
-  #banner.on{transform:translate(-50%,0) rotate(-1deg)}
-  #ustSerit{
-    height:34px;border-radius:14px 14px 0 0;
-    background:linear-gradient(90deg,#163824 0%,#26613b 25%,#53fc18 50%,#26613b 75%,#163824 100%);
-    border:3px solid #e6c675;border-bottom:none;
-    display:flex;align-items:center;justify-content:space-between;padding:0 22px;
-    font-family:Oswald,Impact,sans-serif;font-weight:700;font-size:15px;letter-spacing:.22em;color:#0b140d;
-  }
-  #ustSerit .badge{
-    background:#0d1610;color:#e6c675;padding:1px 10px;border-radius:999px;
-    border:1px solid #e6c675;font-size:12px;letter-spacing:.16em;
-  }
-  #panel{
-    background:radial-gradient(ellipse at top,#18281f 0%,#0b110e 78%);
-    border:3px solid #e6c675;border-top:2px solid rgba(83,252,24,.65);
-    border-radius:0 0 18px 18px;padding:18px 44px 20px;
-    box-shadow:inset 0 0 0 4px rgba(230,198,117,.14);
+  #banner.on{transform:translate(-50%,0) rotate(-1deg) scale(1);opacity:1}
+  #cardWrap{position:relative;width:100%;border-radius:10px;overflow:hidden;background:#ece5cc}
+  #cardImg{display:block;width:100%;height:auto;user-select:none}
+
+  /* Banknotların ortasındaki boş çerçeve alanı */
+  #cardCenter{
+    position:absolute;left:50%;top:53%;transform:translate(-50%,-50%);
+    width:34%;height:46%;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    text-align:center;padding:4px 8px;box-sizing:border-box;overflow:hidden;
   }
   #who{
-    font-family:Oswald,Impact,sans-serif;font-weight:700;font-size:74px;line-height:1.02;
-    color:#f3dfa2;text-shadow:0 4px 0 #163824, 0 0 24px rgba(83,252,24,.35);
-    word-break:break-word;
+    font-family:Oswald,Impact,sans-serif;font-weight:700;font-size:44px;line-height:1.02;
+    color:#162c1e;max-width:100%;word-break:break-word;
+    text-shadow:0 1px 0 rgba(255,250,235,.95), 0 2px 6px rgba(255,250,235,.75);
   }
   #what{
-    font-family:Inter,"Segoe UI",sans-serif;font-weight:800;font-size:32px;
-    color:#ffffff;margin-top:8px;text-shadow:0 2px 8px rgba(0,0,0,.8);
+    font-family:Cinzel,Oswald,serif;font-weight:800;font-size:20px;line-height:1.15;
+    color:#991b1b;letter-spacing:.05em;text-transform:uppercase;margin-top:6px;max-width:100%;
+    text-shadow:0 1px 0 rgba(255,250,235,.95);
   }
-  #sign{
-    font-family:Oswald,Impact,sans-serif;font-weight:600;font-size:16px;
-    letter-spacing:.32em;color:#53fc18;margin-top:10px;opacity:.9;
+  #note{
+    font-family:Inter,"Segoe UI",sans-serif;font-weight:700;font-size:13px;line-height:1.25;
+    color:#233d2c;margin-top:6px;max-width:100%;
+    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
   }
 
   /* Sağ Üst Takip Kartı */
   #follow{
-    position:fixed;top:38px;right:38px;width:370px;
-    transform:translateX(145%);
-    transition:transform .5s cubic-bezier(.2,1.3,.4,1);
-    filter:drop-shadow(0 12px 20px rgba(0,0,0,.6));
+    position:fixed;top:36px;right:36px;width:360px;
+    transform:translateX(145%);transition:transform .5s cubic-bezier(.2,1.3,.4,1);
+    filter:drop-shadow(0 12px 20px rgba(0,0,0,.62));
   }
   #follow.on{transform:none}
-  #fSerit{
-    height:16px;border-radius:12px 12px 0 0;
-    background:linear-gradient(90deg,#1a472a,#53fc18,#e6c675);
-    border:3px solid #e6c675;border-bottom:none;
-  }
-  #fPanel{
-    background:linear-gradient(180deg,#142119,#0b110e);
-    border:3px solid #e6c675;border-top:none;border-radius:0 0 14px 14px;
-    padding:12px 20px 14px;
-  }
-  #fTop{font-family:Oswald,Impact,sans-serif;font-weight:700;font-size:15px;letter-spacing:.2em;color:#53fc18}
-  #fName{font-family:Oswald,Impact,sans-serif;font-weight:700;font-size:38px;line-height:1.05;color:#f3dfa2;word-break:break-word}
-  #fSub{font-family:Inter,"Segoe UI",sans-serif;font-weight:800;font-size:17px;color:#d6dfd8;margin-top:2px}
+  #fSerit{height:14px;border-radius:10px 10px 0 0;background:linear-gradient(90deg,#1a3b26,#3a6b49,#1a3b26);border:3px solid #264732;border-bottom:none}
+  #fPanel{background:linear-gradient(180deg,#f5f0dc,#e5dcbe);border:3px solid #264732;border-top:2px solid #991b1b;border-radius:0 0 12px 12px;padding:12px 20px 14px;box-shadow:inset 0 0 0 3px rgba(38,71,50,.15)}
+  #fTop{font-family:Cinzel,Oswald,serif;font-weight:800;font-size:13px;letter-spacing:.18em;color:#991b1b}
+  #fName{font-family:Oswald,Impact,sans-serif;font-weight:700;font-size:36px;line-height:1.05;color:#162c1e;word-break:break-word}
+  #fSub{font-family:Inter,"Segoe UI",sans-serif;font-weight:800;font-size:15px;color:#35523e;margin-top:2px}
 
-  /* Debug Kutusu (?debug=1) */
   #debugBox{
     position:fixed;left:14px;bottom:14px;width:460px;max-height:180px;overflow:hidden;
     background:rgba(8,12,10,.88);border:1px solid #53fc18;border-radius:10px;
-    padding:8px 10px;font:12px/1.4 Consolas,monospace;color:#9ef59e;display:none;
+    padding:8px 10px;font:12px/1.4 Consolas,monospace;color:#9ef59e;display:none;white-space:pre-wrap;
   }
 </style>
 </head>
@@ -107,15 +75,13 @@
 <canvas id="cv"></canvas>
 
 <div id="banner">
-  <div id="ustSerit">
-    <span>100</span>
-    <span class="badge">AUSEC BANKNOT</span>
-    <span>100</span>
-  </div>
-  <div id="panel">
-    <div id="who"></div>
-    <div id="what"></div>
-    <div id="sign">AUSEC TEŞEKKÜR EDER</div>
+  <div id="cardWrap">
+    <img id="cardImg" src="abone.jpg" alt="AUSEC Banknot">
+    <div id="cardCenter">
+      <div id="who"></div>
+      <div id="what"></div>
+      <div id="note"></div>
+    </div>
   </div>
 </div>
 
@@ -153,193 +119,137 @@
   const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
   let W = 0, H = 0, dpr = 1;
   function resize(){
-    dpr = window.devicePixelRatio || 1;
-    W = innerWidth; H = innerHeight;
-    cv.width = W * dpr; cv.height = H * dpr;
-    cv.style.width = W + 'px'; cv.style.height = H + 'px';
+    dpr = window.devicePixelRatio || 1; W = innerWidth; H = innerHeight;
+    cv.width = W * dpr; cv.height = H * dpr; cv.style.width = W + 'px'; cv.style.height = H + 'px';
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   }
-  addEventListener('resize', resize);
-  resize();
+  addEventListener('resize', resize); resize();
 
-  // ---------- 100 AUSEC Para Görseli Yükleyici (Çoklu Yol + Yedek Çizim) ----------
+  // ---------- 4 Banknot Kart Görseli ----------
+  const CARD_CANDIDATES = {
+    abone:    ['abone.jpg', 'abone_2.jpg', 'assets/abone.jpg'],
+    hediye:   ['hediyeabone.jpg', 'hediyeabone_2.jpg', 'hediye-abone.jpg', 'assets/hediyeabone.jpg'],
+    kicks:    ['kicks.jpg', 'kicks_2.jpg', 'assets/kicks.jpg'],
+    bagis:    ['bagis.jpg', 'bagıs.jpg', 'bagıs_2.jpg', 'assets/bagis.jpg'],
+    tesekkur: ['bagis.jpg', 'bagıs.jpg', 'abone.jpg']
+  };
+  const resolvedCards = {};
+  Object.keys(CARD_CANDIDATES).forEach(kind => {
+    const list = CARD_CANDIDATES[kind];
+    let idx = 0;
+    (function tryLoad(){
+      if (idx >= list.length) return;
+      const src = list[idx++];
+      const im = new Image();
+      im.onload = () => { resolvedCards[kind] = src; log('Kart hazır (' + kind + '): ' + src); };
+      im.onerror = tryLoad;
+      im.src = src;
+    })();
+  });
+
+  // ---------- Yağan 100 AUSEC Banknot Görseli ----------
   const customImg = (P.get('gorsel') || '').trim();
-  const imgCandidates = [
-    customImg,
-    'ausec ama para.jpg',
-    'ausec-para.jpg',
-    'assets/ausec-para.jpg',
-    '/assets/ausec-para.jpg'
-  ].filter(Boolean);
-
+  const imgCandidates = [customImg, 'ausec ama para.jpg', 'ausec-para.jpg', 'assets/ausec-para.jpg', 'abone.jpg'].filter(Boolean);
   const billImg = new Image();
-  let billReady = false;
-  let billAspect = 2.35;
-  let imgTry = 0;
-
-  function loadNextImage(){
-    if (imgTry >= imgCandidates.length){
-      log('Görsel bulunamadı, yerleşik 100 AUSEC banknot çizimi kullanılıyor.');
-      return;
-    }
+  let billReady = false, billAspect = 2.35, imgTry = 0;
+  (function loadNext(){
+    if (imgTry >= imgCandidates.length) return;
     const src = imgCandidates[imgTry++];
     billImg.onload = () => {
-      if (billImg.naturalWidth > 0 && billImg.naturalHeight > 0){
-        billAspect = billImg.naturalWidth / billImg.naturalHeight;
-        billReady = true;
-        log('Para görseli yüklendi: ' + src);
-      }
+      if (billImg.naturalWidth > 0){ billAspect = billImg.naturalWidth / billImg.naturalHeight; billReady = true; log('Yağmur görseli: ' + src); }
     };
-    billImg.onerror = () => loadNextImage();
+    billImg.onerror = loadNext;
     billImg.src = src;
+  })();
+
+  // ---------- Banknot Çizimi ----------
+  function rr(x, y, w, h, r){
+    ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r);
+    ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath();
   }
-  loadNextImage();
-
-  // ---------- 100 AUSEC Banknot Çizimi (3D Kağıt Süzülme Efektli) ----------
   function drawBill(x, y, s, rot, flutter, label){
-    const bw = 152;
-    const bh = bw / billAspect;
-    const flipY = 0.36 + 0.64 * Math.abs(Math.cos(flutter)); // Kağıt dönüş perspektifi
-
-    ctx.save();
-    ctx.translate(x, y);
-    ctx.rotate(rot);
-
-    // Etiket kağıtla birlikte ters dönmesin diye düz eksende çiz
+    const bw = 152, bh = bw / billAspect;
+    const flipY = 0.36 + 0.64 * Math.abs(Math.cos(flutter));
+    ctx.save(); ctx.translate(x, y); ctx.rotate(rot);
     if (label){
-      ctx.save();
-      ctx.rotate(-rot);
-      ctx.font = '800 20px Inter,"Segoe UI",sans-serif';
-      ctx.textAlign = 'center';
-      ctx.lineWidth = 5;
-      ctx.strokeStyle = 'rgba(0,0,0,.88)';
-      ctx.strokeText(label, 0, -(bh * s * 0.65) - 10);
-      ctx.fillStyle = '#f3dfa2';
-      ctx.fillText(label, 0, -(bh * s * 0.65) - 10);
+      ctx.save(); ctx.rotate(-rot);
+      ctx.font = '800 20px Inter,"Segoe UI",sans-serif'; ctx.textAlign = 'center';
+      ctx.lineWidth = 5; ctx.strokeStyle = 'rgba(0,0,0,.88)'; ctx.strokeText(label, 0, -(bh*s*0.65)-10);
+      ctx.fillStyle = '#f3dfa2'; ctx.fillText(label, 0, -(bh*s*0.65)-10);
       ctx.restore();
     }
-
     ctx.scale(s, s * flipY);
-
-    // Yumuşak düşme gölgesi
-    ctx.fillStyle = 'rgba(0,0,0,.32)';
-    rr(-bw/2 + 5, -bh/2 + 7, bw, bh, 5);
-    ctx.fill();
-
+    ctx.fillStyle = 'rgba(0,0,0,.32)'; rr(-bw/2+5, -bh/2+7, bw, bh, 5); ctx.fill();
     if (billReady){
-      ctx.save();
-      rr(-bw/2, -bh/2, bw, bh, 4);
-      ctx.clip();
+      ctx.save(); rr(-bw/2, -bh/2, bw, bh, 4); ctx.clip();
       ctx.drawImage(billImg, -bw/2, -bh/2, bw, bh);
-
-      // Dönüş açısına göre hafif ışık parlaması
       const sheen = Math.max(0, Math.sin(flutter)) * 0.16;
-      if (sheen > 0.01){
-        ctx.fillStyle = 'rgba(255,248,210,' + sheen.toFixed(3) + ')';
-        ctx.fillRect(-bw/2, -bh/2, bw, bh);
-      }
+      if (sheen > 0.01){ ctx.fillStyle = 'rgba(255,248,210,' + sheen.toFixed(3) + ')'; ctx.fillRect(-bw/2, -bh/2, bw, bh); }
       ctx.restore();
-
-      // Banknot çerçevesi
-      ctx.strokeStyle = '#d7be7a';
-      ctx.lineWidth = 2;
-      rr(-bw/2, -bh/2, bw, bh, 4);
-      ctx.stroke();
+      ctx.strokeStyle = '#d7be7a'; ctx.lineWidth = 2; rr(-bw/2, -bh/2, bw, bh, 4); ctx.stroke();
     } else {
-      // Görsel klasörde yoksa yedek vektör 100 AUSEC banknotu
-      ctx.fillStyle = '#ece6cf';
-      ctx.strokeStyle = '#25422f';
-      ctx.lineWidth = 3;
-      rr(-bw/2, -bh/2, bw, bh, 5);
-      ctx.fill(); ctx.stroke();
-
-      ctx.strokeStyle = '#3b6447';
-      ctx.lineWidth = 1.5;
-      rr(-bw/2 + 6, -bh/2 + 6, bw - 12, bh - 12, 3);
-      ctx.stroke();
-
-      ctx.fillStyle = '#1f3b28';
-      ctx.font = '700 13px Oswald,sans-serif';
-      ctx.textAlign = 'left'; ctx.fillText('100', -bw/2 + 10, -bh/2 + 20);
-      ctx.textAlign = 'right'; ctx.fillText('100', bw/2 - 10, bh/2 - 10);
-      ctx.textAlign = 'center';
-      ctx.font = '700 22px Oswald,sans-serif';
-      ctx.fillText('AUSEC', 0, 8);
+      ctx.fillStyle = '#ece6cf'; ctx.strokeStyle = '#25422f'; ctx.lineWidth = 3;
+      rr(-bw/2, -bh/2, bw, bh, 5); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#1f3b28'; ctx.font = '700 22px Oswald,sans-serif'; ctx.textAlign = 'center';
+      ctx.fillText('100 AUSEC', 0, 8);
     }
-
     ctx.restore();
   }
 
-  function rr(x, y, w, h, r){
-    ctx.beginPath();
-    ctx.moveTo(x + r, y);
-    ctx.arcTo(x + w, y, x + w, y + h, r);
-    ctx.arcTo(x + w, y + h, x, y + h, r);
-    ctx.arcTo(x, y + h, x, y, r);
-    ctx.arcTo(x, y, x + w, y, r);
-    ctx.closePath();
-  }
-
-  // ---------- Para Yağmuru ----------
   let drops = [];
   function rain(count, name){
     for (let i = 0; i < count; i++){
       drops.push({
-        x: Math.random() * W,
-        y: -90 - Math.random() * H * 0.95,
-        vy: 190 + Math.random() * 240,
-        vx: (Math.random() - 0.5) * 70,
-        rot: (Math.random() - 0.5) * 1.4,
-        vr: (Math.random() - 0.5) * 2.2,
-        flutter: Math.random() * Math.PI * 2,
-        vf: 2.2 + Math.random() * 3.4,
-        s: 0.65 + Math.random() * 0.55,
-        sway: Math.random() * Math.PI * 2,
-        swayAmp: 35 + Math.random() * 55,
-        label: (i % 7 === 0) ? name : ''
+        x: Math.random()*W, y: -90 - Math.random()*H*0.95,
+        vy: 190 + Math.random()*240, vx: (Math.random()-.5)*70,
+        rot: (Math.random()-.5)*1.4, vr: (Math.random()-.5)*2.2,
+        flutter: Math.random()*Math.PI*2, vf: 2.2 + Math.random()*3.4,
+        s: 0.65 + Math.random()*0.55, sway: Math.random()*Math.PI*2,
+        swayAmp: 35 + Math.random()*55, label: (i % 7 === 0) ? name : ''
       });
     }
   }
 
   // ---------- Olay Sırası ----------
-  const queue = [];
-  let busy = false;
+  const queue = []; let busy = false;
   const banner = document.getElementById('banner');
+  const cardImg = document.getElementById('cardImg');
+  const whoEl = document.getElementById('who');
+  const whatEl = document.getElementById('what');
+  const noteEl = document.getElementById('note');
 
-  function enqueue(ev){
-    queue.push(ev);
-    if (!busy) next();
-  }
+  function enqueue(ev){ queue.push(ev); if (!busy) next(); }
   function next(){
     const ev = queue.shift();
     if (!ev){ busy = false; return; }
     busy = true;
-    document.getElementById('who').textContent = ev.name;
-    document.getElementById('what').textContent = ev.text;
+    cardImg.src = resolvedCards[ev.kind] || resolvedCards.abone || 'abone.jpg';
+    whoEl.textContent = ev.name;
+    whoEl.style.fontSize = ev.name.length > 16 ? '28px' : (ev.name.length > 11 ? '36px' : '44px');
+    whatEl.textContent = ev.text;
+    noteEl.textContent = ev.note || '';
+    noteEl.style.display = ev.note ? '-webkit-box' : 'none';
     banner.classList.add('on');
     rain(ev.count, ev.name);
     if (SES) cashSound();
-    setTimeout(() => banner.classList.remove('on'), 5500);
-    setTimeout(next, 6800);
+    setTimeout(() => banner.classList.remove('on'), 5800);
+    setTimeout(next, 7000);
   }
 
-  function makeEvent(kind, name, n){
+  function makeEvent(kind, name, n, note, tutarMetin){
     name = String(name || 'Biri').replace(/^@/, '').slice(0, 24);
     n = Number(n) || 0;
-    if (kind === 'abone'){
-      const ayTxt = n > 1 ? (n + '. ayında abone oldu! 💵') : 'abone oldu! 💵';
-      return { name, text: ayTxt, count: 48 };
-    }
-    if (kind === 'hediye') return { name, text: (n || 1) + ' abonelik hediye etti! 🎁', count: Math.min(200, 42 + (n || 1) * 14) };
-    if (kind === 'bagis')  return { name, text: n ? n + ' TL bağış yaptı! 💸' : 'bağış yaptı! 💸', count: Math.min(220, 40 + Math.round(Math.sqrt(n) * 9)) };
-    if (kind === 'kicks')  return { name, text: (n ? n + ' ' : '') + 'KICKs gönderdi! ⚡', count: Math.min(200, 38 + Math.round(Math.sqrt(n) * 6)) };
-    return { name, text: 'teşekkürler! 💵', count: 42 };
+    note = String(note || '').trim().slice(0, 90);
+    if (kind === 'abone')  return { kind:'abone', name, text: n > 1 ? (n + '. AY ABONE') : 'HOŞ GELDİN!', note, count: 48 };
+    if (kind === 'hediye') return { kind:'hediye', name, text: (n || 1) + ' ABONELİK HEDİYE', note, count: Math.min(200, 42 + (n || 1)*14) };
+    if (kind === 'kicks')  return { kind:'kicks', name, text: (n ? n + ' ' : '') + 'KICKS', note, count: Math.min(200, 38 + Math.round(Math.sqrt(n)*6)) };
+    if (kind === 'bagis')  return { kind:'bagis', name, text: tutarMetin || (n ? n + ' TL' : 'TEŞEKKÜRLER!'), note, count: Math.min(220, 40 + Math.round(Math.sqrt(n)*9)) };
+    return { kind:'tesekkur', name, text:'TEŞEKKÜRLER!', note, count: 42 };
   }
 
-  // ---------- Takip Kartı + Banknot Patlaması ----------
+  // ---------- Takip Kartı ----------
   const followCard = document.getElementById('follow');
   let fPending = [], fTimer = null, fShowing = false;
-
   function addFollow(name){
     name = String(name || 'Biri').replace(/^@/, '').slice(0, 24);
     if (fPending.some(n => n.toLowerCase() === name.toLowerCase())) return;
@@ -347,75 +257,51 @@
     if (!fTimer && !fShowing) fTimer = setTimeout(flushFollows, 1400);
   }
   function flushFollows(){
-    fTimer = null;
-    if (!fPending.length) return;
-    const names = fPending.splice(0);
-    fShowing = true;
+    fTimer = null; if (!fPending.length) return;
+    const names = fPending.splice(0); fShowing = true;
     document.getElementById('fName').textContent = names[0];
-    document.getElementById('fSub').textContent = names.length > 1
-      ? 've ' + (names.length - 1) + ' kişi daha takip etti!'
-      : 'takip etti, hoş geldin!';
+    document.getElementById('fSub').textContent = names.length > 1 ? 've ' + (names.length-1) + ' kişi daha takip etti!' : 'takip etti, hoş geldin!';
     followCard.classList.add('on');
     if (SES) cashSound(true);
-
     setTimeout(() => {
-      const r = followCard.getBoundingClientRect();
-      const n = Math.min(24, 7 + names.length * 3);
+      const r = followCard.getBoundingClientRect(), n = Math.min(24, 7 + names.length*3);
       for (let i = 0; i < n; i++){
         drops.push({
-          x: r.left + Math.random() * r.width,
-          y: r.bottom - 18,
-          vy: -(340 + Math.random() * 340),
-          g: 840,
-          vx: (Math.random() - 0.6) * 320,
-          rot: (Math.random() - 0.5) * 2,
-          vr: (Math.random() - 0.5) * 6,
-          flutter: Math.random() * 6,
-          vf: 4 + Math.random() * 4,
-          s: 0.42 + Math.random() * 0.24,
-          sway: 0, swayAmp: 0,
-          label: ''
+          x: r.left + Math.random()*r.width, y: r.bottom - 18, vy: -(340 + Math.random()*340), g: 840,
+          vx: (Math.random()-.6)*320, rot: (Math.random()-.5)*2, vr: (Math.random()-.5)*6,
+          flutter: Math.random()*6, vf: 4 + Math.random()*4, s: 0.42 + Math.random()*0.24, sway: 0, swayAmp: 0, label: ''
         });
       }
     }, 280);
-
     setTimeout(() => followCard.classList.remove('on'), 4500);
     setTimeout(() => { fShowing = false; if (fPending.length) flushFollows(); }, 5200);
   }
 
-  // ---------- Kasa / Para Çınlama Sesi (?ses=1) ----------
+  // ---------- Para / Kasa Sesi ----------
   let ac = null;
   function cashSound(soft){
     try {
       ac = ac || new (window.AudioContext || window.webkitAudioContext)();
       const notes = soft ? [987.77, 1318.51] : [1046.5, 1318.51, 1567.98, 2093.0];
       notes.forEach((freq, i) => {
-        const o = ac.createOscillator(), g = ac.createGain();
-        const t = ac.currentTime + i * 0.075;
-        o.frequency.value = freq;
-        o.type = i % 2 ? 'sine' : 'triangle';
+        const o = ac.createOscillator(), g = ac.createGain(), t = ac.currentTime + i*0.075;
+        o.frequency.value = freq; o.type = i % 2 ? 'sine' : 'triangle';
         g.gain.setValueAtTime(0.0001, t);
-        g.gain.exponentialRampToValueAtTime(soft ? 0.16 : 0.22, t + 0.015);
-        g.gain.exponentialRampToValueAtTime(0.0001, t + 0.42);
-        o.connect(g).connect(ac.destination);
-        o.start(t); o.stop(t + 0.45);
+        g.gain.exponentialRampToValueAtTime(soft ? 0.16 : 0.22, t+0.015);
+        g.gain.exponentialRampToValueAtTime(0.0001, t+0.42);
+        o.connect(g).connect(ac.destination); o.start(t); o.stop(t+0.45);
       });
     } catch(e){}
   }
 
-  // ---------- Animasyon Döngüsü ----------
   let last = performance.now();
   function loop(now){
-    const dt = Math.min(0.04, (now - last) / 1000);
-    last = now;
+    const dt = Math.min(0.04, (now-last)/1000); last = now;
     ctx.clearRect(0, 0, W, H);
     for (const d of drops){
-      if (d.g) d.vy += d.g * dt;
-      d.y += d.vy * dt;
-      d.sway += dt * 2.1;
-      d.flutter += d.vf * dt;
-      d.x += (d.vx + Math.sin(d.sway) * (d.swayAmp || 0)) * dt;
-      d.rot += d.vr * dt;
+      if (d.g) d.vy += d.g*dt;
+      d.y += d.vy*dt; d.sway += dt*2.1; d.flutter += d.vf*dt;
+      d.x += (d.vx + Math.sin(d.sway)*(d.swayAmp || 0))*dt; d.rot += d.vr*dt;
       drawBill(d.x, d.y, d.s, d.rot, d.flutter, d.label);
     }
     drops = drops.filter(d => d.y < H + 150);
@@ -423,12 +309,20 @@
   }
   requestAnimationFrame(loop);
 
-  // ---------- Sohbet Komutları ve Bot Mesajları ----------
+  // ---------- Sıkı Yetki Kontrolü (Sadece Yayıncı / Moderatör) ----------
+  function isStrictMod(p){
+    if (p.isMod === true) return true;
+    if (Array.isArray(p.b)){
+      return p.b.some(x => ['broadcaster','moderator','owner'].includes(String(x).toLowerCase()));
+    }
+    return false;
+  }
+
   function handleChat(user, text, isMod){
     const t = String(text || '').trim();
     const low = t.toLocaleLowerCase('tr');
 
-    // 1. Sadece yayıncı veya moderatör komutları (izleyicilerin !abone spamı tetiklemez)
+    // Yalnızca yayıncı / moderatör komutları (VIP / abone tetikleyemez)
     if (isMod){
       let m;
       if ((m = low.match(/^!takip\s+(\S+)/))) return addFollow(t.split(/\s+/)[1]);
@@ -436,28 +330,20 @@
         const original = t.split(/\s+/)[1];
         const cmd = m[1];
         const kind = (cmd === 'para' || cmd.startsWith('ya')) ? (m[3] ? 'bagis' : 'tesekkur')
-                   : cmd.startsWith('ba') ? 'bagis'
-                   : cmd;
+                   : cmd.startsWith('ba') ? 'bagis' : cmd;
         log('Mod komutu: ' + kind + ' -> ' + original);
         return enqueue(makeEvent(kind, original, m[3]));
       }
-      if (low === '!testpara'){
-        log('Mod komutu: !testpara');
-        return enqueue(makeEvent('abone', user));
-      }
+      if (low === '!testpara') return enqueue(makeEvent('abone', user));
     }
 
-    // 2. Botrix / KickBot sohbet duyuruları
+    // Bot duyuruları
     if (BOTS.includes(String(user).toLowerCase())){
-      log('Bot mesajı (' + user + '): ' + t.slice(0, 60));
       let name = (t.match(/@([A-Za-z0-9_ğüşıöçĞÜŞİÖÇ.-]{2,25})/) || [])[1];
       if (!name){
         const words = t.replace(/[!.,:;()\[\]]/g, ' ').split(/\s+/).filter(Boolean);
-        name = words.find(w =>
-          w.length >= 2 &&
-          !/^\d+$/.test(w) &&
-          !/^(yeni|new|abone|oldu|hediye|etti|bağış|bagis|sub|subs|subscribed|gifted|gift|donated|donation|kicks|tl|takip|followed|thank|thanks|teşekkürler|tesekkurler|kanala|kanalına)$/i.test(w)
-        ) || 'Biri';
+        name = words.find(w => w.length >= 2 && !/^\d+$/.test(w) &&
+          !/^(yeni|new|abone|oldu|hediye|etti|bağış|bagis|sub|subs|subscribed|gifted|gift|donated|donation|kicks|tl|takip|followed|thank|thanks|teşekkürler|tesekkurler|kanala|kanalına)$/i.test(w)) || 'Biri';
       }
       const num = Number((t.replace(/@\S+/g, '').match(/(\d+)/) || [])[1]) || 0;
       if (/hediye|gift/i.test(t)) return enqueue(makeEvent('hediye', name, num));
@@ -468,63 +354,48 @@
     }
   }
 
-  // ---------- Aktarıcıdan Gelen Gerçek Kick Olayları ----------
   function handleEvent(p){
     const kind = String(p.tip || p.type || p.event || p.olay || '').toLowerCase();
     if (!kind || kind === 'chat') return false;
-    const name = p.u || p.kullanici || p.username || p.user || p.gifter_username || p.name
-              || (p.data && (p.data.username || p.data.gifter_username));
-    const n = p.adet || p.ay || p.months || p.count || p.amount || p.miktar
-           || (p.data && (Array.isArray(p.data.gifted_usernames) ? p.data.gifted_usernames.length : (p.data.months || p.data.amount)));
-
-    log('Olay geldi: ' + kind + ' -> ' + (name || '?') + (n ? (' (' + n + ')') : ''));
+    const name = p.kullanici || p.u || p.username || p.user || p.gifter_username || p.name;
+    const n = p.adet || p.ay || p.months || p.count || p.amount || p.miktar;
+    const note = p.mesaj || p.note || '';
+    const tutarMetin = p.tutarMetin || '';
+    log('Olay: ' + kind + ' -> ' + (name || '?') + (n ? (' (' + n + ')') : ''));
     if (/follow|takip/.test(kind)) { addFollow(name); return true; }
-    if (/gift|hediye/.test(kind))  { enqueue(makeEvent('hediye', name, n)); return true; }
-    if (/sub|abone/.test(kind))    { enqueue(makeEvent('abone', name, n)); return true; }
-    if (/kicks|tip/.test(kind))    { enqueue(makeEvent('kicks', name, n)); return true; }
-    if (/don|bagis|bağış/.test(kind)) { enqueue(makeEvent('bagis', name, n)); return true; }
+    if (/gift|hediye/.test(kind))  { enqueue(makeEvent('hediye', name, n, note)); return true; }
+    if (/sub|abone/.test(kind))    { enqueue(makeEvent('abone', name, n, note)); return true; }
+    if (/kicks|tip/.test(kind))    { enqueue(makeEvent('kicks', name, n, note)); return true; }
+    if (/don|bagis|bağış/.test(kind)) { enqueue(makeEvent('bagis', name, n, note, tutarMetin)); return true; }
     return false;
   }
 
   function connectRelay(){
     let ws;
     try { ws = new WebSocket(RELAY_URL); } catch(e){ return setTimeout(connectRelay, 3000); }
-    ws.onopen = () => log('Aktarıcıya bağlandı: ' + RELAY_URL);
+    ws.onopen = () => log('Aktarıcıya bağlandı');
     ws.onmessage = ev => {
       let p; try { p = JSON.parse(ev.data); } catch(e){ return; }
       if (p.durum){ log(p.durum); return; }
       if (handleEvent(p)) return;
-      if (p.u && p.m !== undefined){
-        // Yeni serviste isMod doğrudan gelir; eski aktarıcıda p.r yedeği kullanılır
-        const isMod = (p.isMod !== undefined) ? Boolean(p.isMod) : Boolean(p.r);
-        handleChat(p.u, p.m, isMod);
-      } else if (p.type === 'chat'){
-        handleChat(p.user, p.text, Boolean(p.isMod));
-      }
+      if (p.u && p.m !== undefined) handleChat(p.u, p.m, isStrictMod(p));
+      else if (p.type === 'chat') handleChat(p.user, p.text, p.isMod === true);
     };
-    ws.onclose = () => { log('Aktarıcı koptu, tekrar deneniyor...'); setTimeout(connectRelay, 3000); };
+    ws.onclose = () => setTimeout(connectRelay, 3000);
     ws.onerror = () => { try { ws.close(); } catch(e){} };
   }
 
   if (TEST){
     const demo = [
-      ['abone', 'kral34', 1],
-      ['hediye', 'Elfsec', 5],
-      ['bagis', 'anildegil', 100],
-      ['kicks', 'Amigo1453', 250]
+      ['abone', 'kral34', 1, ''],
+      ['hediye', 'Elfsec', 5, ''],
+      ['kicks', 'Amigo1453', 250, ''],
+      ['bagis', 'anildegil', 100, 'İyi yayınlar kral!']
     ];
     let i = 0;
-    const go = () => { const d = demo[i++ % demo.length]; enqueue(makeEvent(d[0], d[1], d[2])); };
-    go();
-    setInterval(go, 7200);
-    const fn = ['gece_kusu', 'pofuduk', 'minnos', 'turbo06', 'raki_balik'];
-    setInterval(() => {
-      const k = 1 + Math.floor(Math.random() * 2);
-      for (let j = 0; j < k; j++) addFollow(fn[Math.floor(Math.random() * fn.length)] + Math.floor(Math.random() * 99));
-    }, 6500);
-  } else {
-    connectRelay();
-  }
+    const go = () => { const d = demo[i++ % demo.length]; enqueue(makeEvent(d[0], d[1], d[2], d[3])); };
+    go(); setInterval(go, 7600);
+  } else connectRelay();
 })();
 </script>
 </body>

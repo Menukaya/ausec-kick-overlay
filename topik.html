@@ -4,28 +4,13 @@
 <meta charset="utf-8">
 <title>AUSEC TOPİK – Kick</title>
 <!--
-  KULLANIM (OBS):
-  1) Aktarıcı (ws://localhost:8787) açık olsun
-  2) OBS > Kaynaklar > + > Tarayıcı, bu dosyayı seç. Genişlik 420, Yükseklik 720
-  Kimse yokken ekranda hiçbir şey görünmez. Biri !topik yazınca oyun açılır,
-  her turda farklı bir harita seçilir, yarış biter ve 6 sn sonra kapanır.
-
-  URL Ayarları (? / & ile):
-    sure=40      Katılım süresi (saniye)
-    uzunluk=6    Pist uzunluğu (3-10 arası, varsayılan 6)
-    renk=53fc18  Vurgu rengi (# olmadan)
-    harita=1..6  Belirli bir haritayı sabitlemek için (boşsa her tur rastgele)
-    test=1       Sahte izleyicilerle hızlı deneme (8 sn sayaç)
-    debug=1      Logları gösterir ve ekranı açık tutar
-
-  Sohbet Komutları:
-    !topik (veya !top, !katıl, !katil) -> yarışa katıl
-    !başlat / !baslat (mod/yayıncı)    -> geri sayımı beklemeden başlat
+  OBS: http://localhost:8787/topik  (Genişlik 420, Yükseklik 720)
+  URL Ayarları: sure=40, uzunluk=6, harita=1..6, ses=0 (MSN sesini kapatır), test=1, debug=1
 -->
 <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Inter:wght@500;700;800&display=swap" rel="stylesheet">
 <style>
   :root{--acc:#53fc18}
-  html,body{margin:0;padding:0;background:transparent;overflow:hidden}
+  html,body{margin:0;padding:0;background:transparent;overflow:hidden;width:420px;height:720px}
   body{font-family:Inter,"Segoe UI",Arial,sans-serif;color:#F5F1EA}
   #box{width:400px;margin:10px;border-radius:18px;overflow:hidden;
        background:rgba(9,12,20,.84);box-shadow:0 10px 34px rgba(0,0,0,.55);
@@ -58,13 +43,6 @@
   #chips{display:flex;flex-wrap:wrap;justify-content:center;gap:6px;max-height:58px;overflow:hidden;padding:0 18px}
   .chip{font-size:12px;font-weight:700;padding:3px 10px;border-radius:999px;background:rgba(255,255,255,.08)}
   #err{font-size:12px;color:#ff9a9a;min-height:14px}
-  #winOv{position:absolute;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;gap:10px;
-         background:rgba(9,12,20,.76);text-align:center;padding:0 20px;box-sizing:border-box}
-  #winOv.on{display:flex}
-  #winLbl{font-family:Oswald,sans-serif;font-size:22px;letter-spacing:.14em;color:var(--acc)}
-  #winBall{width:48px;height:48px;border-radius:50%;box-shadow:0 0 32px currentColor}
-  #winName{font-family:Oswald,sans-serif;font-weight:700;font-size:44px;line-height:1.05;word-break:break-word}
-  #winTime{font-size:14px;color:#C9CED8;font-weight:600}
   #board{padding:8px 14px 14px;display:flex;flex-direction:column;gap:4px;min-height:132px}
   .row{display:flex;align-items:center;gap:9px;height:29px;padding:0 8px;border-radius:8px;background:rgba(255,255,255,.04);font-size:15px}
   .rk{width:18px;font-family:Oswald,sans-serif;font-weight:700;color:#FFD54F}
@@ -72,6 +50,40 @@
   .nm{flex:1;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .st{font-size:12px;color:#8C94A6;font-weight:600}
   .info{font-size:13px;color:#9AA3B5;padding:6px;line-height:1.4}
+
+  /* Klasik MSN Messenger Kazanan Bildirimi */
+  #msnToast{
+    position:fixed;right:16px;bottom:16px;width:348px;z-index:50;
+    border-radius:8px;overflow:hidden;
+    border:1px solid #5c8bc2;
+    box-shadow:0 10px 26px rgba(0,0,0,.65), inset 0 1px 0 rgba(255,255,255,.9);
+    background:linear-gradient(180deg,#f5f9ff 0%,#dce9fa 52%,#c4dcf7 100%);
+    color:#0b2447;font-family:Tahoma,"Segoe UI",Arial,sans-serif;
+    transform:translateY(145%);opacity:0;
+    transition:transform .48s cubic-bezier(.2,1.22,.38,1), opacity .3s ease;
+    pointer-events:none;
+  }
+  #msnToast.on{transform:translateY(0);opacity:1}
+  #msnBar{
+    height:26px;padding:0 8px 0 9px;display:flex;align-items:center;justify-content:space-between;
+    background:linear-gradient(180deg,#eaf3fe 0%,#b8d4f5 48%,#9fc4ee 52%,#cde1f8 100%);
+    border-bottom:1px solid #8bb1dd;font-size:11.5px;font-weight:700;color:#123768;
+  }
+  .msnTitle{display:flex;align-items:center;gap:6px}
+  .msnClose{width:16px;height:16px;border-radius:3px;border:1px solid #7ea4d0;background:linear-gradient(180deg,#fff,#d8e6f7);color:#355987;font-size:11px;line-height:14px;text-align:center}
+  #msnBody{display:flex;align-items:center;gap:12px;padding:12px 12px 13px}
+  #msnAvatar{
+    width:54px;height:54px;flex:none;border-radius:7px;
+    border:2px solid #7aa4d6;background:linear-gradient(180deg,#fff,#d8e9fc);
+    box-shadow:inset 0 1px 3px rgba(0,0,0,.15);
+    display:flex;align-items:center;justify-content:center;position:relative;
+  }
+  #msnBall{width:34px;height:34px;border-radius:50%;box-shadow:0 2px 8px rgba(0,0,0,.35)}
+  #msnDot{position:absolute;right:-3px;bottom:-3px;width:13px;height:13px;border-radius:50%;background:#35c72c;border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.3)}
+  #msnText{min-width:0;flex:1}
+  #msnHeadline{font-size:15px;font-weight:800;color:#0a2a5e;line-height:1.2;word-break:break-word}
+  #msnSub{font-size:11.5px;color:#1750a3;text-decoration:underline;margin-top:4px}
+  #msnMeta{font-size:10.5px;color:#4a678c;margin-top:4px}
 </style>
 </head>
 <body>
@@ -95,42 +107,51 @@
       <div id="chips"></div>
       <div id="err"></div>
     </div>
-    <div id="winOv">
-      <div id="winLbl">🏆 KAZANAN</div>
-      <div id="winBall"></div>
-      <div id="winName"></div>
-      <div id="winTime"></div>
-    </div>
   </div>
   <div id="board"></div>
 </div>
 
+<!-- MSN Messenger Şaka Bildirimi -->
+<div id="msnToast">
+  <div id="msnBar">
+    <span class="msnTitle">
+      <svg width="14" height="14" viewBox="0 0 24 24">
+        <circle cx="9" cy="7" r="4" fill="#35b828"/><path d="M2 20c0-4 3-7 7-7s7 3 7 7z" fill="#35b828"/>
+        <circle cx="16" cy="9" r="3.5" fill="#1e7ad9"/><path d="M10 21c0-3.5 2.7-6 6-6s6 2.5 6 6z" fill="#1e7ad9"/>
+      </svg>
+      MSN Messenger
+    </span>
+    <span class="msnClose">×</span>
+  </div>
+  <div id="msnBody">
+    <div id="msnAvatar">
+      <div id="msnBall"></div>
+      <span id="msnDot"></span>
+    </div>
+    <div id="msnText">
+      <div id="msnHeadline">En Büyük Top -İsim-</div>
+      <div id="msnSub">az önce oturum açtı (Çevrimiçi)</div>
+      <div id="msnMeta"></div>
+    </div>
+  </div>
+</div>
+
 <script>
 (function(){
-  // ---------- Ayarlar ----------
   const P = new URLSearchParams(location.search);
   const RELAY_URL = (P.get('relay') || 'ws://localhost:8787').trim();
   const TEST = P.get('test') === '1';
   const DEBUG = P.get('debug') === '1';
+  const SES = P.get('ses') !== '0';
   const JOIN_SEC = Math.max(5, parseInt(P.get('sure') || (TEST ? '8' : '40'), 10));
-  const LEN = Math.max(3, Math.min(10, parseFloat(P.get('uzunluk') || '6'))); // Uzun parkur varsayılanı: 6 ekran
+  const LEN = Math.max(3, Math.min(10, parseFloat(P.get('uzunluk') || '6')));
   const FIXED_MAP = parseInt(P.get('harita') || '0', 10);
   const ACC = '#' + ((P.get('renk') || '53fc18').replace('#',''));
-  const WIN_SEC = 6, MAX_PLAYERS = 64;
+  const WIN_SEC = 7, MAX_PLAYERS = 64;
   document.documentElement.style.setProperty('--acc', ACC);
 
-  const C = {
-    blue: '#45B8F5',
-    pink: '#FF4F9A',
-    purple: '#B57BFF',
-    orange: '#FF9F43',
-    gold: '#FFD54F',
-    green: '#53FC18',
-    cyan: '#22D3EE',
-    white: 'rgba(255,255,255,.9)'
-  };
+  const C = { blue:'#45B8F5', pink:'#FF4F9A', purple:'#B57BFF', orange:'#FF9F43', gold:'#FFD54F', green:'#53FC18', cyan:'#22D3EE', white:'rgba(255,255,255,.9)' };
   const BALL = ['#4FC3F7','#FF5A5F','#FFD54F','#B388FF','#69F0AE','#FF8A65','#F06292','#4DD0E1','#AED581','#FFB74D','#9575CD','#E57373'];
-
   const logs = [];
   function log(t){ logs.push(new Date().toLocaleTimeString('tr-TR') + '  ' + t); if (logs.length > 7) logs.shift(); }
 
@@ -140,9 +161,8 @@
   cv.width = W * dpr; cv.height = H * dpr; cv.style.width = W + 'px'; cv.style.height = H + 'px';
   const ctx = cv.getContext('2d'); ctx.scale(dpr, dpr);
   const $ = id => document.getElementById(id);
-  const box = $('box');
+  const box = $('box'), msnToast = $('msnToast');
 
-  // ---------- Durum ----------
   let phase = 'idle', phaseStart = performance.now();
   let players = [], pegs = [], bumpers = [], segs = [];
   let finishCount = 0, firstFinishAt = 0, raceStart = 0, camY = 0, gateOpen = false;
@@ -154,479 +174,244 @@
   function shortName(n){ return n.length > 13 ? n.slice(0,12)+'…' : n; }
   function esc(s){ return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
+  // ---------- Klasik MSN Bildirim Sesi ----------
+  let ac = null;
+  function msnChime(){
+    if (!SES) return;
+    try {
+      ac = ac || new (window.AudioContext || window.webkitAudioContext)();
+      [[587.33, 0, .14], [783.99, .11, .16], [1174.66, .22, .38]].forEach(([f, d, dur]) => {
+        const o = ac.createOscillator(), g = ac.createGain(), t = ac.currentTime + d;
+        o.type = 'sine'; o.frequency.value = f;
+        g.gain.setValueAtTime(0.0001, t);
+        g.gain.exponentialRampToValueAtTime(0.22, t + 0.02);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+        o.connect(g).connect(ac.destination); o.start(t); o.stop(t + dur + 0.03);
+      });
+    } catch(e){}
+  }
+
   // ---------- Pist Yapı Taşları ----------
   function addSeg(ax, ay, bx, by, color, extra){
-    const cx = (ax + bx) / 2, cy = (ay + by) / 2;
-    segs.push(Object.assign({
-      x: cx, y: cy, baseX: cx, baseY: cy,
-      len: Math.hypot(bx - ax, by - ay),
-      ang: Math.atan2(by - ay, bx - ax),
-      spin: 0, bounce: 1.35,
-      moveAmp: 0, moveFreq: 0, movePhase: 0, vx: 0,
-      color
-    }, extra || {}));
+    const cx = (ax+bx)/2, cy = (ay+by)/2;
+    segs.push(Object.assign({ x:cx, y:cy, baseX:cx, baseY:cy, len:Math.hypot(bx-ax,by-ay), ang:Math.atan2(by-ay,bx-ax), spin:0, bounce:1.35, moveAmp:0, moveFreq:0, movePhase:0, vx:0, color }, extra||{}));
   }
   function addCross(cx, cy, len, spin, color){
     const a = rnd(0, Math.PI);
     segs.push({ x:cx, y:cy, baseX:cx, baseY:cy, len, ang:a, spin, bounce:1.45, moveAmp:0, moveFreq:0, movePhase:0, vx:0, color });
-    segs.push({ x:cx, y:cy, baseX:cx, baseY:cy, len, ang:a + Math.PI/2, spin, bounce:1.45, moveAmp:0, moveFreq:0, movePhase:0, vx:0, color });
+    segs.push({ x:cx, y:cy, baseX:cx, baseY:cy, len, ang:a+Math.PI/2, spin, bounce:1.45, moveAmp:0, moveFreq:0, movePhase:0, vx:0, color });
   }
-  function segEnds(s){
-    const dx = Math.cos(s.ang) * s.len / 2, dy = Math.sin(s.ang) * s.len / 2;
-    return { ax: s.x - dx, ay: s.y - dy, bx: s.x + dx, by: s.y + dy };
-  }
+  function segEnds(s){ const dx = Math.cos(s.ang)*s.len/2, dy = Math.sin(s.ang)*s.len/2; return {ax:s.x-dx, ay:s.y-dy, bx:s.x+dx, by:s.y+dy}; }
 
-  // Ortak blok üreticileri (tüm boşluklar >= 44px garantili -> sıkışma olmaz)
   const BLOCKS = {
     funnel(y, color = C.orange){
-      const hole = rnd(44, 54), cx = rnd(130, W - 130);
-      addSeg(0, y + 8, cx - hole/2, y + 78, color);
-      addSeg(W, y + 8, cx + hole/2, y + 78, color);
-      return 115;
+      const hole = rnd(44,54), cx = rnd(130,W-130);
+      addSeg(0,y+8,cx-hole/2,y+78,color); addSeg(W,y+8,cx+hole/2,y+78,color); return 115;
     },
     pachinko(y, rows = 6){
-      for (let r = 0; r < rows; r++){
-        const off = r % 2 ? 19 : 0;
-        for (let x = 24 + off; x <= W - 22; x += 38){
-          pegs.push({ x, y: y + 14 + r * 34, r: 4.2 });
-        }
-      }
-      return rows * 34 + 34;
+      for (let r=0; r<rows; r++){ const off = r%2 ? 19 : 0; for (let x=24+off; x<=W-22; x+=38) pegs.push({x, y:y+14+r*34, r:4.2}); }
+      return rows*34 + 34;
     },
     zigzag(y, count = 4, color = C.blue){
-      let left = Math.random() < 0.5;
-      for (let i = 0; i < count; i++){
-        const gap = rnd(52, 64), drop = rnd(28, 38), yy = y + 12 + i * 86;
-        if (left){
-          addSeg(0, yy, W - gap, yy + drop, color);
-          // Rampa üstüne ufak şans çivisi (sollama yaratır)
-          pegs.push({ x: rnd(90, W - 120), y: yy - 12, r: 3.8 });
-        } else {
-          addSeg(W, yy, gap, yy + drop, color);
-          pegs.push({ x: rnd(120, W - 90), y: yy - 12, r: 3.8 });
-        }
+      let left = Math.random() < .5;
+      for (let i=0; i<count; i++){
+        const gap = rnd(52,64), drop = rnd(28,38), yy = y+12+i*86;
+        if (left){ addSeg(0,yy,W-gap,yy+drop,color); pegs.push({x:rnd(90,W-120), y:yy-12, r:3.8}); }
+        else { addSeg(W,yy,gap,yy+drop,color); pegs.push({x:rnd(120,W-90), y:yy-12, r:3.8}); }
         left = !left;
       }
-      return count * 86 + 34;
+      return count*86 + 34;
     },
     spinLanes(y, rows = 2, color = C.purple){
-      for (let i = 0; i < rows; i++){
-        const cy = y + 70 + i * 145;
-        if (i % 2 === 0){
-          addCross(105, cy, 114, rnd(1.5, 2.2) * (Math.random() < .5 ? 1 : -1), color);
-          addCross(295, cy, 114, rnd(1.5, 2.2) * (Math.random() < .5 ? 1 : -1), color);
-          pegs.push({ x: 200, y: cy - 38, r: 5 });
+      for (let i=0; i<rows; i++){
+        const cy = y+70+i*145;
+        if (i%2 === 0){
+          addCross(105,cy,114,rnd(1.5,2.2)*(Math.random()<.5?1:-1),color);
+          addCross(295,cy,114,rnd(1.5,2.2)*(Math.random()<.5?1:-1),color);
+          pegs.push({x:200, y:cy-38, r:5});
         } else {
-          addCross(200, cy, 148, rnd(1.6, 2.4) * (Math.random() < .5 ? 1 : -1), C.pink);
-          addSeg(0, cy - 42, 62, cy + 8, C.cyan);
-          addSeg(W, cy - 42, W - 62, cy + 8, C.cyan);
+          addCross(200,cy,148,rnd(1.6,2.4)*(Math.random()<.5?1:-1),C.pink);
+          addSeg(0,cy-42,62,cy+8,C.cyan); addSeg(W,cy-42,W-62,cy+8,C.cyan);
         }
       }
-      return rows * 145 + 36;
+      return rows*145 + 36;
     },
     bumperPit(y, rows = 3){
-      for (let r = 0; r < rows; r++){
-        const yy = y + 36 + r * 78;
-        if (r % 2 === 0){
-          bumpers.push({ x: 96, y: yy, r: 16, flash: 0 });
-          bumpers.push({ x: 200, y: yy + 8, r: 17, flash: 0 });
-          bumpers.push({ x: 304, y: yy, r: 16, flash: 0 });
-        } else {
-          bumpers.push({ x: 145, y: yy, r: 17, flash: 0 });
-          bumpers.push({ x: 255, y: yy, r: 17, flash: 0 });
-          // Yan trambolin duvarları (hızlı geri sekme)
-          addSeg(4, yy - 24, 54, yy + 22, C.gold, { bounce: 2.05 });
-          addSeg(W - 4, yy - 24, W - 54, yy + 22, C.gold, { bounce: 2.05 });
+      for (let r=0; r<rows; r++){
+        const yy = y+36+r*78;
+        if (r%2 === 0){ bumpers.push({x:96,y:yy,r:16,flash:0},{x:200,y:yy+8,r:17,flash:0},{x:304,y:yy,r:16,flash:0}); }
+        else {
+          bumpers.push({x:145,y:yy,r:17,flash:0},{x:255,y:yy,r:17,flash:0});
+          addSeg(4,yy-24,54,yy+22,C.gold,{bounce:2.05}); addSeg(W-4,yy-24,W-54,yy+22,C.gold,{bounce:2.05});
         }
       }
-      return rows * 78 + 38;
+      return rows*78 + 38;
     },
     sliders(y, count = 3){
-      for (let i = 0; i < count; i++){
-        const yy = y + 40 + i * 74;
-        const len = rnd(92, 118);
-        const amp = (W - len - 108) / 2; // Kenarlarda her zaman >= 54px boşluk kalır
-        addSeg(W/2 - len/2, yy, W/2 + len/2, yy, C.cyan, {
-          moveAmp: amp,
-          moveFreq: rnd(1.3, 2.0),
-          movePhase: i * 1.9 + rnd(0, 1.5),
-          bounce: 1.55
-        });
+      for (let i=0; i<count; i++){
+        const yy = y+40+i*74, len = rnd(92,118), amp = (W-len-108)/2;
+        addSeg(W/2-len/2,yy,W/2+len/2,yy,C.cyan,{moveAmp:amp, moveFreq:rnd(1.3,2.0), movePhase:i*1.9+rnd(0,1.5), bounce:1.55});
       }
-      return count * 74 + 34;
+      return count*74 + 34;
     },
     diamondSplit(y){
-      // Ortada elmas dağıtıcı + iki yanda trambolinler
-      addSeg(200, y + 12, 128, y + 66, C.pink, { bounce: 1.5 });
-      addSeg(200, y + 12, 272, y + 66, C.pink, { bounce: 1.5 });
-      addSeg(128, y + 66, 170, y + 108, C.pink);
-      addSeg(272, y + 66, 230, y + 108, C.pink);
-      bumpers.push({ x: 56, y: y + 72, r: 14, flash: 0 });
-      bumpers.push({ x: W - 56, y: y + 72, r: 14, flash: 0 });
-      addSeg(0, y + 128, 125, y + 178, C.gold, { bounce: 1.9 });
-      addSeg(W, y + 128, W - 125, y + 178, C.gold, { bounce: 1.9 });
+      addSeg(200,y+12,128,y+66,C.pink,{bounce:1.5}); addSeg(200,y+12,272,y+66,C.pink,{bounce:1.5});
+      addSeg(128,y+66,170,y+108,C.pink); addSeg(272,y+66,230,y+108,C.pink);
+      bumpers.push({x:56,y:y+72,r:14,flash:0},{x:W-56,y:y+72,r:14,flash:0});
+      addSeg(0,y+128,125,y+178,C.gold,{bounce:1.9}); addSeg(W,y+128,W-125,y+178,C.gold,{bounce:1.9});
       return 210;
     },
     twinCorridor(y, swap = false){
       const h = 360;
-      // Ortada şapkalı bölme duvarı (toplar üstte dengede kalmaz)
-      addSeg(200, y + 8, 174, y + 32, C.orange);
-      addSeg(200, y + 8, 226, y + 32, C.orange);
-      addSeg(200, y + 26, 200, y + h, C.orange);
-
-      const rampSide = swap ? 200 : 0;
-      const pinSide = swap ? 0 : 200;
-
-      // Koridor A: Mini zigzag rampalar
-      for (let i = 0; i < 4; i++){
-        const yy = y + 48 + i * 74;
-        if (i % 2 === 0) addSeg(rampSide + 4, yy, rampSide + 144, yy + 24, C.blue);
-        else             addSeg(rampSide + 196, yy, rampSide + 56, yy + 24, C.blue);
+      addSeg(200,y+8,174,y+32,C.orange); addSeg(200,y+8,226,y+32,C.orange); addSeg(200,y+26,200,y+h,C.orange);
+      const rampSide = swap ? 200 : 0, pinSide = swap ? 0 : 200;
+      for (let i=0; i<4; i++){
+        const yy = y+48+i*74;
+        if (i%2 === 0) addSeg(rampSide+4,yy,rampSide+144,yy+24,C.blue);
+        else           addSeg(rampSide+196,yy,rampSide+56,yy+24,C.blue);
       }
-
-      // Koridor B: Çivi + mini pervane + bumper
-      for (let r = 0; r < 3; r++){
-        const off = r % 2 ? 18 : 0;
-        for (let x = pinSide + 28 + off; x < pinSide + 180; x += 38){
-          pegs.push({ x, y: y + 52 + r * 34, r: 4 });
-        }
-      }
-      addCross(pinSide + 100, y + 215, 86, swap ? -1.9 : 1.9, C.purple);
-      bumpers.push({ x: pinSide + 58, y: y + 305, r: 13, flash: 0 });
-      bumpers.push({ x: pinSide + 142, y: y + 305, r: 13, flash: 0 });
-
+      for (let r=0; r<3; r++){ const off = r%2 ? 18 : 0; for (let x=pinSide+28+off; x<pinSide+180; x+=38) pegs.push({x, y:y+52+r*34, r:4}); }
+      addCross(pinSide+100,y+215,86,swap?-1.9:1.9,C.purple);
+      bumpers.push({x:pinSide+58,y:y+305,r:13,flash:0},{x:pinSide+142,y:y+305,r:13,flash:0});
       return h + 34;
     }
   };
 
-  // ---------- 6 FARKLI HARİTA TEMASI ----------
   const MAPS = [
-    {
-      name: 'ÇİVİLİ VADİ',
-      railColor: C.blue,
-      build(startY, endY){
-        let y = startY;
-        y += BLOCKS.funnel(y, C.blue);
-        let stepIdx = 0;
-        while (y < endY - 140){
-          const rem = endY - y;
-          if (stepIdx % 3 === 0 && rem > 230) y += BLOCKS.pachinko(y, 6);
-          else if (stepIdx % 3 === 1 && rem > 220) y += BLOCKS.diamondSplit(y);
-          else if (rem > 210) y += BLOCKS.bumperPit(y, 2);
-          else { y += BLOCKS.pachinko(y, 3); break; }
-          stepIdx++;
-        }
-      }
-    },
-    {
-      name: 'ZİGZAG KANYONU',
-      railColor: C.cyan,
-      build(startY, endY){
-        let y = startY;
-        y += BLOCKS.funnel(y, C.cyan);
-        let stepIdx = 0;
-        while (y < endY - 150){
-          const rem = endY - y;
-          if (stepIdx % 3 === 0 && rem > 360) y += BLOCKS.zigzag(y, 4, C.blue);
-          else if (stepIdx % 3 === 1 && rem > 240) y += BLOCKS.sliders(y, 3);
-          else if (rem > 140) y += BLOCKS.funnel(y, C.orange);
-          else break;
-          stepIdx++;
-        }
-      }
-    },
-    {
-      name: 'PERVANE LABİRENTİ',
-      railColor: C.purple,
-      build(startY, endY){
-        let y = startY;
-        y += BLOCKS.funnel(y, C.purple);
-        let stepIdx = 0;
-        while (y < endY - 160){
-          const rem = endY - y;
-          if (stepIdx % 2 === 0 && rem > 320) y += BLOCKS.spinLanes(y, 2, C.purple);
-          else if (rem > 220) y += BLOCKS.pachinko(y, 4);
-          else break;
-          stepIdx++;
-        }
-      }
-    },
-    {
-      name: 'LANGIRT ARENASI',
-      railColor: C.gold,
-      build(startY, endY){
-        let y = startY;
-        y += BLOCKS.funnel(y, C.gold);
-        let stepIdx = 0;
-        while (y < endY - 160){
-          const rem = endY - y;
-          if (stepIdx % 3 === 0 && rem > 270) y += BLOCKS.bumperPit(y, 3);
-          else if (stepIdx % 3 === 1 && rem > 220) y += BLOCKS.diamondSplit(y);
-          else if (rem > 230) y += BLOCKS.sliders(y, 2);
-          else break;
-          stepIdx++;
-        }
-      }
-    },
-    {
-      name: 'İKİZ ŞELALE',
-      railColor: C.orange,
-      build(startY, endY){
-        let y = startY;
-        let swap = false;
-        while (y < endY - 160){
-          const rem = endY - y;
-          if (rem > 420){
-            y += BLOCKS.twinCorridor(y, swap);
-            swap = !swap;
-            if (endY - y > 150) y += BLOCKS.funnel(y, C.orange);
-          } else if (rem > 200){
-            y += BLOCKS.pachinko(y, 4);
-            break;
-          } else break;
-        }
-      }
-    },
-    {
-      name: 'KAOS MARATONU',
-      railColor: C.pink,
-      build(startY, endY){
-        let y = startY;
-        const seq = [
-          () => BLOCKS.funnel(y, C.pink),
-          () => BLOCKS.pachinko(y, 5),
-          () => BLOCKS.spinLanes(y, 2, C.purple),
-          () => BLOCKS.zigzag(y, 3, C.blue),
-          () => BLOCKS.bumperPit(y, 3),
-          () => BLOCKS.sliders(y, 3),
-          () => BLOCKS.twinCorridor(y, Math.random() < .5),
-          () => BLOCKS.diamondSplit(y)
-        ];
-        let i = 0;
-        while (y < endY - 220){
-          y += seq[i % seq.length]();
-          i++;
-        }
-        if (endY - y > 130) BLOCKS.pachinko(y, 3);
-      }
-    }
+    { name:'ÇİVİLİ VADİ', railColor:C.blue, build(y, endY){ y += BLOCKS.funnel(y,C.blue); let s=0; while(y<endY-140){ const r=endY-y; if(s%3===0&&r>230) y+=BLOCKS.pachinko(y,6); else if(s%3===1&&r>220) y+=BLOCKS.diamondSplit(y); else if(r>210) y+=BLOCKS.bumperPit(y,2); else{ y+=BLOCKS.pachinko(y,3); break; } s++; } } },
+    { name:'ZİGZAG KANYONU', railColor:C.cyan, build(y, endY){ y += BLOCKS.funnel(y,C.cyan); let s=0; while(y<endY-150){ const r=endY-y; if(s%3===0&&r>360) y+=BLOCKS.zigzag(y,4,C.blue); else if(s%3===1&&r>240) y+=BLOCKS.sliders(y,3); else if(r>140) y+=BLOCKS.funnel(y,C.orange); else break; s++; } } },
+    { name:'PERVANE LABİRENTİ', railColor:C.purple, build(y, endY){ y += BLOCKS.funnel(y,C.purple); let s=0; while(y<endY-160){ const r=endY-y; if(s%2===0&&r>320) y+=BLOCKS.spinLanes(y,2,C.purple); else if(r>220) y+=BLOCKS.pachinko(y,4); else break; s++; } } },
+    { name:'LANGIRT ARENASI', railColor:C.gold, build(y, endY){ y += BLOCKS.funnel(y,C.gold); let s=0; while(y<endY-160){ const r=endY-y; if(s%3===0&&r>270) y+=BLOCKS.bumperPit(y,3); else if(s%3===1&&r>220) y+=BLOCKS.diamondSplit(y); else if(r>230) y+=BLOCKS.sliders(y,2); else break; s++; } } },
+    { name:'İKİZ ŞELALE', railColor:C.orange, build(y, endY){ let sw=false; while(y<endY-160){ const r=endY-y; if(r>420){ y+=BLOCKS.twinCorridor(y,sw); sw=!sw; if(endY-y>150) y+=BLOCKS.funnel(y,C.orange); } else if(r>200){ y+=BLOCKS.pachinko(y,4); break; } else break; } } },
+    { name:'KAOS MARATONU', railColor:C.pink, build(y, endY){ const seq=[()=>BLOCKS.funnel(y,C.pink),()=>BLOCKS.pachinko(y,5),()=>BLOCKS.spinLanes(y,2,C.purple),()=>BLOCKS.zigzag(y,3,C.blue),()=>BLOCKS.bumperPit(y,3),()=>BLOCKS.sliders(y,3),()=>BLOCKS.twinCorridor(y,Math.random()<.5),()=>BLOCKS.diamondSplit(y)]; let i=0; while(y<endY-220){ y+=seq[i%seq.length](); i++; } if(endY-y>130) BLOCKS.pachinko(y,3); } }
   ];
 
   function pickMap(){
-    if (FIXED_MAP >= 1 && FIXED_MAP <= MAPS.length){
-      lastMapIdx = FIXED_MAP - 1;
-      return MAPS[lastMapIdx];
-    }
-    let idx;
-    do { idx = Math.floor(Math.random() * MAPS.length); } while (idx === lastMapIdx && MAPS.length > 1);
-    lastMapIdx = idx;
-    return MAPS[idx];
+    if (FIXED_MAP >= 1 && FIXED_MAP <= MAPS.length){ lastMapIdx = FIXED_MAP - 1; return MAPS[lastMapIdx]; }
+    let idx; do { idx = Math.floor(Math.random()*MAPS.length); } while (idx === lastMapIdx && MAPS.length > 1);
+    lastMapIdx = idx; return MAPS[idx];
   }
-
   function buildTrack(){
     pegs = []; bumpers = []; segs = []; gateOpen = false;
     currentMap = pickMap();
     $('mapTag').textContent = '🗺️ ' + currentMap.name;
     $('jMap').textContent = 'HARİTA: ' + currentMap.name;
-
-    // Başlangıç bölmesi kapağı
-    addSeg(0, GATE_Y, W, GATE_Y, ACC, { gate: true, bounce: 1.12 });
+    addSeg(0, GATE_Y, W, GATE_Y, ACC, { gate:true, bounce:1.12 });
     currentMap.build(GATE_Y + 26, FINISH_Y - 34);
   }
 
-  // ---------- Görünürlük ----------
   let hideTimer = null;
-  function showBox(){
-    clearTimeout(hideTimer);
-    if (box.classList.contains('on')) return;
-    box.style.display = 'block'; void box.offsetWidth; box.classList.add('on');
-  }
-  function hideBox(){
-    if (DEBUG) return;
-    box.classList.remove('on');
-    hideTimer = setTimeout(() => { if (phase === 'idle') box.style.display = 'none'; }, 550);
-  }
+  function showBox(){ clearTimeout(hideTimer); if (box.classList.contains('on')) return; box.style.display = 'block'; void box.offsetWidth; box.classList.add('on'); }
+  function hideBox(){ if (DEBUG) return; box.classList.remove('on'); hideTimer = setTimeout(() => { if (phase === 'idle') box.style.display = 'none'; }, 550); }
 
-  // ---------- Akış ----------
-  function beginJoin(){
-    buildTrack(); players = []; camY = 0;
-    phase = 'join'; phaseStart = performance.now();
-    renderChips(); showBox();
-  }
+  function beginJoin(){ msnToast.classList.remove('on'); buildTrack(); players = []; camY = 0; phase = 'join'; phaseStart = performance.now(); renderChips(); showBox(); }
   function addPlayer(name){
     if (phase === 'idle') beginJoin();
     if (phase !== 'join' || players.length >= MAX_PLAYERS) return;
     if (players.some(p => p.name.toLowerCase() === name.toLowerCase())) return;
-    players.push({
-      name, color: colorFor(name),
-      x: rnd(26, W - 26), y: rnd(10, 48),
-      vx: rnd(-55, 55), vy: rnd(0, 30),
-      done: false, time: 0, order: 0,
-      still: 0, lastX: 0, lastY: 0
-    });
+    players.push({ name, color:colorFor(name), x:rnd(26,W-26), y:rnd(10,48), vx:rnd(-55,55), vy:rnd(0,30), done:false, time:0, order:0, still:0, lastY:0 });
     renderChips();
   }
   function renderChips(){
     $('jCnt').textContent = players.length;
-    $('chips').innerHTML = players.slice(-12).map(p => '<span class="chip" style="color:' + p.color + '">' + esc(p.name) + '</span>').join('');
+    $('chips').innerHTML = players.slice(-12).map(p => '<span class="chip" style="color:'+p.color+'">'+esc(p.name)+'</span>').join('');
   }
   function startRace(){
     if (!players.length) return;
-    phase = 'race'; phaseStart = raceStart = performance.now();
-    finishCount = 0; firstFinishAt = 0; gateOpen = true;
+    phase = 'race'; phaseStart = raceStart = performance.now(); finishCount = 0; firstFinishAt = 0; gateOpen = true;
     segs = segs.filter(s => !s.gate);
-    players.forEach(p => {
-      p.still = 0; p.lastX = p.x; p.lastY = p.y;
-      p.vx += rnd(-45, 45); p.vy += rnd(10, 50);
-    });
+    players.forEach(p => { p.still = 0; p.lastY = p.y; p.vx += rnd(-45,45); p.vy += rnd(10,50); });
   }
   function endRace(){
     players.filter(p => !p.done).sort((a,b) => b.y - a.y).forEach(p => { p.order = ++finishCount; });
     phase = 'win'; phaseStart = performance.now();
     const w = players.find(p => p.order === 1);
-    $('winName').textContent = w ? w.name : '';
-    $('winName').style.color = w ? w.color : '#fff';
-    $('winBall').style.background = w ? 'radial-gradient(circle at 35% 30%, #fff, ' + w.color + ' 45%, #000 120%)' : 'none';
-    $('winBall').style.color = w ? w.color : '#fff';
-    $('winTime').textContent = w && w.time
-      ? currentMap.name + ' · ' + w.time.toFixed(1).replace('.', ',') + ' saniyede bitirdi'
-      : currentMap.name;
+    if (w){
+      $('msnHeadline').textContent = 'En Büyük Top -' + w.name + '-';
+      $('msnBall').style.background = 'radial-gradient(circle at 35% 30%, #fff, ' + w.color + ' 45%, #000 120%)';
+      $('msnMeta').textContent = currentMap.name + (w.time ? ' · ' + w.time.toFixed(1).replace('.', ',') + ' sn' : '');
+      msnToast.classList.add('on');
+      msnChime();
+    }
   }
   function goIdle(){
     phase = 'idle'; phaseStart = performance.now();
+    msnToast.classList.remove('on');
     hideBox();
     if (TEST) setTimeout(seedTest, 2500);
   }
 
-  // ---------- Fizik Motoru (Sıkışma ve Tünel Önleyici) ----------
+  // ---------- Fizik ----------
   const G = 560, SUB = 5, VMAX = 415;
   function step(dt, now){
     const tSec = now / 1000;
     for (const s of segs){
       if (s.spin) s.ang += s.spin * dt;
-      if (s.moveAmp){
-        const nx = s.baseX + Math.sin(tSec * s.moveFreq + s.movePhase) * s.moveAmp;
-        s.vx = (nx - s.x) / Math.max(dt, 0.001);
-        s.x = nx;
-      } else {
-        s.vx = 0;
-      }
+      if (s.moveAmp){ const nx = s.baseX + Math.sin(tSec*s.moveFreq + s.movePhase)*s.moveAmp; s.vx = (nx - s.x)/Math.max(dt,0.001); s.x = nx; }
+      else s.vx = 0;
     }
     for (const b of bumpers) if (b.flash > 0) b.flash -= dt;
     const ends = segs.map(segEnds);
-
     for (let k = 0; k < SUB; k++){
       const h = dt / SUB;
       for (const p of players){
         if (p.done) continue;
-        p.vy += G * h;
-        p.vx += rnd(-22, 22) * h;
-        const sp = Math.hypot(p.vx, p.vy);
-        if (sp > VMAX){ p.vx *= VMAX / sp; p.vy *= VMAX / sp; }
-        p.x += p.vx * h;
-        p.y += p.vy * h;
-
-        for (let i = 0; i < ends.length; i++){
-          const s = segs[i];
-          if (Math.abs(s.y - p.y) > s.len / 2 + 24) continue;
-          hitSeg(p, ends[i], s);
-        }
-        for (const g of pegs){
-          if (Math.abs(g.y - p.y) < 16) hitCircle(p, g, 1.55);
-        }
-        for (const b of bumpers){
-          if (Math.abs(b.y - p.y) < 34 && hitCircle(p, b, 2.1)) b.flash = 0.25;
-        }
-        if (p.x < R){ p.x = R; p.vx = Math.abs(p.vx) * 0.55; }
-        if (p.x > W - R){ p.x = W - R; p.vx = -Math.abs(p.vx) * 0.55; }
-        if (p.y < 6 && phase === 'join'){ p.y = 6; p.vy = Math.abs(p.vy) * 0.3; }
+        p.vy += G*h; p.vx += rnd(-22,22)*h;
+        const sp = Math.hypot(p.vx, p.vy); if (sp > VMAX){ p.vx *= VMAX/sp; p.vy *= VMAX/sp; }
+        p.x += p.vx*h; p.y += p.vy*h;
+        for (let i = 0; i < ends.length; i++){ const s = segs[i]; if (Math.abs(s.y - p.y) <= s.len/2 + 24) hitSeg(p, ends[i], s); }
+        for (const g of pegs) if (Math.abs(g.y - p.y) < 16) hitCircle(p, g, 1.55);
+        for (const b of bumpers) if (Math.abs(b.y - p.y) < 34 && hitCircle(p, b, 2.1)) b.flash = 0.25;
+        if (p.x < R){ p.x = R; p.vx = Math.abs(p.vx)*0.55; }
+        if (p.x > W-R){ p.x = W-R; p.vx = -Math.abs(p.vx)*0.55; }
+        if (p.y < 6 && phase === 'join'){ p.y = 6; p.vy = Math.abs(p.vy)*0.3; }
       }
-      // Bilye-bilye çarpışması
       for (let i = 0; i < players.length; i++){
         const a = players[i]; if (a.done) continue;
-        for (let j = i + 1; j < players.length; j++){
+        for (let j = i+1; j < players.length; j++){
           const b = players[j]; if (b.done) continue;
-          const dx = b.x - a.x, dy = b.y - a.y;
-          if (Math.abs(dx) > 2*R || Math.abs(dy) > 2*R) continue;
-          const d = Math.hypot(dx, dy);
+          const dx = b.x-a.x, dy = b.y-a.y; if (Math.abs(dx) > 2*R || Math.abs(dy) > 2*R) continue;
+          const d = Math.hypot(dx,dy);
           if (d > 0 && d < 2*R){
-            const nx = dx / d, ny = dy / d, pen = (2*R - d) / 2;
-            a.x -= nx * pen; a.y -= ny * pen; b.x += nx * pen; b.y += ny * pen;
-            const rv = (b.vx - a.vx) * nx + (b.vy - a.vy) * ny;
-            if (rv < 0){
-              const imp = -1.52 * rv / 2;
-              a.vx -= imp * nx; a.vy -= imp * ny; b.vx += imp * nx; b.vy += imp * ny;
-            }
+            const nx = dx/d, ny = dy/d, pen = (2*R-d)/2;
+            a.x -= nx*pen; a.y -= ny*pen; b.x += nx*pen; b.y += ny*pen;
+            const rv = (b.vx-a.vx)*nx + (b.vy-a.vy)*ny;
+            if (rv < 0){ const imp = -1.52*rv/2; a.vx -= imp*nx; a.vy -= imp*ny; b.vx += imp*nx; b.vy += imp*ny; }
           }
         }
-        if (a.x < R) a.x = R;
-        if (a.x > W - R) a.x = W - R;
+        if (a.x < R) a.x = R; if (a.x > W-R) a.x = W-R;
       }
     }
-
     if (phase !== 'race') return;
     for (const p of players){
       if (p.done) continue;
-      if (p.y > FINISH_Y){
-        p.done = true; p.order = ++finishCount; p.time = (now - raceStart) / 1000;
-        if (!firstFinishAt) firstFinishAt = now;
-        continue;
-      }
-      // Takılma kurtarma: 1.6 sn içinde aşağı inemeyen bilyeyi merkez yönüne sıçrat
+      if (p.y > FINISH_Y){ p.done = true; p.order = ++finishCount; p.time = (now - raceStart)/1000; if (!firstFinishAt) firstFinishAt = now; continue; }
       p.still += dt;
       if (p.still > 1.6){
-        if (p.y - p.lastY < 10){
-          const awayFromWall = p.x < 65 ? rnd(70, 150) : (p.x > W - 65 ? rnd(-150, -70) : rnd(-135, 135));
-          p.vx = awayFromWall;
-          p.vy = -125;
-        }
-        p.lastX = p.x; p.lastY = p.y; p.still = 0;
+        if (p.y - p.lastY < 10){ p.vx = p.x < 65 ? rnd(70,150) : (p.x > W-65 ? rnd(-150,-70) : rnd(-135,135)); p.vy = -125; }
+        p.lastY = p.y; p.still = 0;
       }
     }
   }
-
   function hitSeg(p, e, s){
-    const ex = e.bx - e.ax, ey = e.by - e.ay, L2 = ex*ex + ey*ey;
-    let t = ((p.x - e.ax)*ex + (p.y - e.ay)*ey) / L2;
-    t = Math.max(0, Math.min(1, t));
-    const cx = e.ax + t*ex, cy = e.ay + t*ey;
-    const dx = p.x - cx, dy = p.y - cy, d = Math.hypot(dx, dy), lim = R + 2.2;
+    const ex = e.bx-e.ax, ey = e.by-e.ay, L2 = ex*ex+ey*ey;
+    let t = Math.max(0, Math.min(1, ((p.x-e.ax)*ex + (p.y-e.ay)*ey)/L2));
+    const cx = e.ax+t*ex, cy = e.ay+t*ey, dx = p.x-cx, dy = p.y-cy, d = Math.hypot(dx,dy), lim = R+2.2;
     if (d > 0 && d < lim){
-      const nx = dx / d, ny = dy / d;
-      p.x += nx * (lim - d);
-      p.y += ny * (lim - d);
-
-      // Dönen veya kayan engelin temas noktasındaki yüzey hızı
-      const rx = cx - s.x, ry = cy - s.y;
-      const svx = (s.vx || 0) - (s.spin || 0) * ry;
-      const svy = (s.spin || 0) * rx;
-
-      const rvx = p.vx - svx, rvy = p.vy - svy;
-      const vn = rvx * nx + rvy * ny;
-      if (vn < 0){
-        const e2 = s.bounce || 1.35;
-        p.vx -= e2 * vn * nx;
-        p.vy -= e2 * vn * ny;
-      }
-      if (s.gate){ p.vx *= 0.96; }
-      const sp = Math.hypot(p.vx, p.vy);
-      if (sp > VMAX){ p.vx *= VMAX / sp; p.vy *= VMAX / sp; }
+      const nx = dx/d, ny = dy/d; p.x += nx*(lim-d); p.y += ny*(lim-d);
+      const svx = (s.vx||0) - (s.spin||0)*(cy-s.y), svy = (s.spin||0)*(cx-s.x);
+      const vn = (p.vx-svx)*nx + (p.vy-svy)*ny;
+      if (vn < 0){ const e2 = s.bounce || 1.35; p.vx -= e2*vn*nx; p.vy -= e2*vn*ny; }
+      if (s.gate) p.vx *= 0.96;
+      const sp = Math.hypot(p.vx,p.vy); if (sp > VMAX){ p.vx *= VMAX/sp; p.vy *= VMAX/sp; }
     }
   }
-
   function hitCircle(p, g, bounce){
-    const dx = p.x - g.x, dy = p.y - g.y, d = Math.hypot(dx, dy), lim = R + g.r;
+    const dx = p.x-g.x, dy = p.y-g.y, d = Math.hypot(dx,dy), lim = R+g.r;
     if (d > 0 && d < lim){
-      const nx = dx / d, ny = dy / d;
-      p.x += nx * (lim - d);
-      p.y += ny * (lim - d);
-      const vn = p.vx * nx + p.vy * ny;
-      if (vn < 0){
-        p.vx -= bounce * vn * nx;
-        p.vy -= bounce * vn * ny;
-      }
-      p.vx += rnd(-18, 18);
-      return true;
+      const nx = dx/d, ny = dy/d; p.x += nx*(lim-d); p.y += ny*(lim-d);
+      const vn = p.vx*nx + p.vy*ny; if (vn < 0){ p.vx -= bounce*vn*nx; p.vy -= bounce*vn*ny; }
+      p.vx += rnd(-18,18); return true;
     }
     return false;
   }
@@ -634,126 +419,77 @@
   // ---------- Çizim ----------
   function updateCam(){
     let target = 0;
-    if (phase === 'race'){
-      const run = players.filter(p => !p.done);
-      target = run.length ? Math.max.apply(null, run.map(p => p.y)) - H * 0.44 : TH - H;
-    } else if (phase === 'win') target = TH - H;
-    target = Math.max(0, Math.min(TH - H, target));
-    camY += (target - camY) * (phase === 'join' ? 0.3 : 0.07);
+    if (phase === 'race'){ const run = players.filter(p => !p.done); target = run.length ? Math.max.apply(null, run.map(p => p.y)) - H*0.44 : TH - H; }
+    else if (phase === 'win') target = TH - H;
+    camY += (Math.max(0, Math.min(TH - H, target)) - camY) * (phase === 'join' ? 0.3 : 0.07);
   }
-
   function draw(){
-    ctx.clearRect(0, 0, W, H);
-    updateCam();
+    ctx.clearRect(0, 0, W, H); updateCam();
     ctx.save(); ctx.translate(0, -camY);
     const top = camY - 80, bot = camY + H + 80;
-
-    // Yan ray çizgileri (harita rengine göre)
-    const rail = (currentMap && currentMap.railColor) || C.blue;
-    ctx.fillStyle = rail; ctx.globalAlpha = 0.55;
-    ctx.fillRect(0, 0, 2.5, TH); ctx.fillRect(W - 2.5, 0, 2.5, TH);
-    ctx.globalAlpha = 1;
-
-    // Başlangıç bölmesi arka planı
-    if (!gateOpen){
-      ctx.fillStyle = 'rgba(255,255,255,.04)';
-      ctx.fillRect(0, 0, W, GATE_Y);
-    }
-
-    // Çiviler (pegs)
+    ctx.fillStyle = (currentMap && currentMap.railColor) || C.blue; ctx.globalAlpha = 0.55;
+    ctx.fillRect(0, 0, 2.5, TH); ctx.fillRect(W-2.5, 0, 2.5, TH); ctx.globalAlpha = 1;
+    if (!gateOpen){ ctx.fillStyle = 'rgba(255,255,255,.04)'; ctx.fillRect(0, 0, W, GATE_Y); }
     ctx.fillStyle = C.white;
-    for (const g of pegs){
-      if (g.y < top || g.y > bot) continue;
-      ctx.beginPath(); ctx.arc(g.x, g.y, g.r, 0, Math.PI*2); ctx.fill();
-    }
-
-    // Bumperlar
+    for (const g of pegs){ if (g.y < top || g.y > bot) continue; ctx.beginPath(); ctx.arc(g.x, g.y, g.r, 0, Math.PI*2); ctx.fill(); }
     for (const b of bumpers){
       if (b.y < top || b.y > bot) continue;
       ctx.shadowColor = C.purple; ctx.shadowBlur = b.flash > 0 ? 22 : 9;
-      ctx.fillStyle = b.flash > 0 ? '#fff' : 'rgba(181,123,255,.28)';
-      ctx.strokeStyle = C.purple; ctx.lineWidth = 3;
+      ctx.fillStyle = b.flash > 0 ? '#fff' : 'rgba(181,123,255,.28)'; ctx.strokeStyle = C.purple; ctx.lineWidth = 3;
       ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, Math.PI*2); ctx.fill(); ctx.stroke();
     }
-
-    // Segmentler (rampalar, pervaneler, kayan engeller, trambolinler)
     ctx.lineCap = 'round';
     for (const s of segs){
       if (s.y < top - s.len && s.y > bot + s.len) continue;
       const e = segEnds(s);
-      ctx.strokeStyle = s.color;
-      ctx.lineWidth = s.gate ? 4 : (s.bounce > 1.8 ? 5 : 3.8);
-      ctx.shadowColor = s.color;
-      ctx.shadowBlur = s.bounce > 1.8 ? 14 : 8;
+      ctx.strokeStyle = s.color; ctx.lineWidth = s.gate ? 4 : (s.bounce > 1.8 ? 5 : 3.8);
+      ctx.shadowColor = s.color; ctx.shadowBlur = s.bounce > 1.8 ? 14 : 8;
       if (s.gate) ctx.setLineDash([10, 6]);
       ctx.beginPath(); ctx.moveTo(e.ax, e.ay); ctx.lineTo(e.bx, e.by); ctx.stroke();
       ctx.setLineDash([]);
-      // Dönen pervanenin ortasına mil noktası
-      if (s.spin){
-        ctx.fillStyle = '#fff';
-        ctx.beginPath(); ctx.arc(s.x, s.y, 4, 0, Math.PI*2); ctx.fill();
-      }
+      if (s.spin){ ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(s.x, s.y, 4, 0, Math.PI*2); ctx.fill(); }
     }
     ctx.shadowBlur = 0;
-
-    // Bitiş çizgisi (dama)
     for (let x = 0, i = 0; x < W; x += 12, i++){
-      ctx.fillStyle = i % 2 ? '#fff' : '#0b0e16'; ctx.fillRect(x, FINISH_Y, 12, 6);
-      ctx.fillStyle = i % 2 ? '#0b0e16' : '#fff'; ctx.fillRect(x, FINISH_Y + 6, 12, 6);
+      ctx.fillStyle = i%2 ? '#fff' : '#0b0e16'; ctx.fillRect(x, FINISH_Y, 12, 6);
+      ctx.fillStyle = i%2 ? '#0b0e16' : '#fff'; ctx.fillRect(x, FINISH_Y+6, 12, 6);
     }
-
-    // Bilyeler ve isimler
     const run = players.filter(p => !p.done);
     for (const p of run) marble(p.x, p.y, p.color, R);
     if (phase === 'race'){
       ctx.font = '700 10px Inter,"Segoe UI",Arial,sans-serif'; ctx.textAlign = 'center';
       for (const p of run){
-        ctx.fillStyle = 'rgba(0,0,0,.78)'; ctx.fillText(shortName(p.name), p.x + 1, p.y - 12);
-        ctx.fillStyle = '#fff'; ctx.fillText(shortName(p.name), p.x, p.y - 13);
+        ctx.fillStyle = 'rgba(0,0,0,.78)'; ctx.fillText(shortName(p.name), p.x+1, p.y-12);
+        ctx.fillStyle = '#fff'; ctx.fillText(shortName(p.name), p.x, p.y-13);
       }
     }
     ctx.restore();
-
-    // Sağ kenar yarış ilerleme çubuğu
     if (phase === 'race' || phase === 'win'){
       const lead = players.length ? Math.max.apply(null, players.map(p => p.done ? FINISH_Y : p.y)) : 0;
-      const pct = Math.max(0, Math.min(1, (lead - GATE_Y) / (FINISH_Y - GATE_Y)));
-      ctx.fillStyle = 'rgba(255,255,255,.12)';
-      roundRect(W - 8, 12, 4, H - 24, 2); ctx.fill();
-      ctx.fillStyle = ACC;
-      roundRect(W - 8, 12, 4, (H - 24) * pct, 2); ctx.fill();
+      const pct = Math.max(0, Math.min(1, (lead - GATE_Y)/(FINISH_Y - GATE_Y)));
+      ctx.fillStyle = 'rgba(255,255,255,.12)'; roundRect(W-8, 12, 4, H-24, 2); ctx.fill();
+      ctx.fillStyle = ACC; roundRect(W-8, 12, 4, (H-24)*pct, 2); ctx.fill();
     }
-
     if (DEBUG){
-      const h = 14 + logs.length * 15;
-      ctx.fillStyle = 'rgba(0,0,0,.88)'; ctx.fillRect(0, 0, W, h);
+      const h = 14 + logs.length*15; ctx.fillStyle = 'rgba(0,0,0,.88)'; ctx.fillRect(0, 0, W, h);
       ctx.fillStyle = '#9f9'; ctx.font = '11px Consolas,monospace'; ctx.textAlign = 'left';
-      logs.forEach((l, i) => ctx.fillText(l.slice(0, 62), 6, 13 + i * 15));
+      logs.forEach((l,i) => ctx.fillText(l.slice(0,62), 6, 13+i*15));
     }
   }
-
-  function roundRect(x,y,w,h,r){
-    ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r);
-    ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath();
-  }
-  function marble(x, y, color, r){
-    const g = ctx.createRadialGradient(x - r*.35, y - r*.35, r*.15, x, y, r);
-    g.addColorStop(0, '#fff'); g.addColorStop(.35, color); g.addColorStop(1, 'rgba(0,0,0,.52)');
-    ctx.fillStyle = color; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI*2); ctx.fill();
-    ctx.fillStyle = g; ctx.fill();
+  function roundRect(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
+  function marble(x,y,color,r){
+    const g = ctx.createRadialGradient(x-r*.35, y-r*.35, r*.15, x, y, r);
+    g.addColorStop(0,'#fff'); g.addColorStop(.35,color); g.addColorStop(1,'rgba(0,0,0,.52)');
+    ctx.fillStyle = color; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI*2); ctx.fill(); ctx.fillStyle = g; ctx.fill();
   }
 
-  // ---------- Arayüz ----------
   let lastBoard = '';
   function renderUI(now){
-    const el = (now - phaseStart) / 1000;
+    const el = (now - phaseStart)/1000;
     $('joinOv').classList.toggle('on', phase === 'join');
-    $('winOv').classList.toggle('on', phase === 'win');
     let st = '';
-    if (phase === 'join'){
-      const left = Math.max(0, Math.ceil(JOIN_SEC - el));
-      $('jSec').textContent = left; st = left + ' sn';
-    } else if (phase === 'race') st = 'yarış sürüyor';
+    if (phase === 'join'){ const left = Math.max(0, Math.ceil(JOIN_SEC - el)); $('jSec').textContent = left; st = left + ' sn'; }
+    else if (phase === 'race') st = 'yarış sürüyor';
     else if (phase === 'win') st = 'kapanıyor ' + Math.max(0, Math.ceil(WIN_SEC - el)) + ' sn';
     $('err').textContent = (!TEST && !connected) ? connError : '';
     $('stxt').textContent = st;
@@ -761,14 +497,11 @@
 
     let html = '';
     if (phase === 'race' || phase === 'win'){
-      players.slice().sort((a,b) => (a.done && b.done) ? a.order - b.order : a.done ? -1 : b.done ? 1 : b.y - a.y)
+      players.slice().sort((a,b) => (a.done && b.done) ? a.order-b.order : a.done ? -1 : b.done ? 1 : b.y-a.y)
         .slice(0, 4).forEach((p, i) => {
-          const pct = Math.max(0, Math.min(99, Math.round(((p.y - GATE_Y) / (FINISH_Y - GATE_Y)) * 100)));
-          const s = p.done
-            ? p.order + '. · ' + (p.time ? p.time.toFixed(1).replace('.', ',') + ' sn' : 'bitti')
-            : '%' + pct;
-          html += '<div class="row"><span class="rk">' + (i + 1) + '</span><span class="dot" style="background:' + p.color +
-                  '"></span><span class="nm">' + esc(p.name) + '</span><span class="st">' + s + '</span></div>';
+          const pct = Math.max(0, Math.min(99, Math.round(((p.y - GATE_Y)/(FINISH_Y - GATE_Y))*100)));
+          const s = p.done ? p.order + '. · ' + (p.time ? p.time.toFixed(1).replace('.', ',') + ' sn' : 'bitti') : '%' + pct;
+          html += '<div class="row"><span class="rk">' + (i+1) + '</span><span class="dot" style="background:' + p.color + '"></span><span class="nm">' + esc(p.name) + '</span><span class="st">' + s + '</span></div>';
         });
     } else if (phase === 'join'){
       html = '<div class="info">Süre bitince kapak açılır, <b style="color:#fff">' + esc(currentMap ? currentMap.name : '') + '</b> parkurunda ilk bitiren kazanır!</div>';
@@ -776,62 +509,47 @@
     if (html !== lastBoard){ $('board').innerHTML = html; lastBoard = html; }
   }
 
-  // ---------- Döngü ----------
   let last = performance.now();
   function loop(now){
-    const dt = Math.min(0.033, (now - last) / 1000); last = now;
-    if (phase === 'join' && (now - phaseStart) / 1000 >= JOIN_SEC){
-      if (players.length) startRace(); else phaseStart = now;
-    }
+    const dt = Math.min(0.033, (now - last)/1000); last = now;
+    if (phase === 'join' && (now - phaseStart)/1000 >= JOIN_SEC){ if (players.length) startRace(); else phaseStart = now; }
     if (phase === 'join' || phase === 'race') step(dt, now);
     if (phase === 'race'){
-      const el = (now - phaseStart) / 1000;
-      if (players.every(p => p.done) || (firstFinishAt && now - firstFinishAt > 22000) || el > 60 + 35 * LEN) endRace();
+      const el = (now - phaseStart)/1000;
+      if (players.every(p => p.done) || (firstFinishAt && now - firstFinishAt > 22000) || el > 60 + 35*LEN) endRace();
     }
-    if (phase === 'win' && (now - phaseStart) / 1000 >= WIN_SEC) goIdle();
+    if (phase === 'win' && (now - phaseStart)/1000 >= WIN_SEC) goIdle();
     if (phase !== 'idle' || DEBUG){ draw(); renderUI(now); }
     requestAnimationFrame(loop);
   }
 
-  // ---------- Sohbet Komutları ----------
+  // ---------- Sıkı Mod Kontrolü (Sadece Yayıncı / Moderatör) ----------
+  function isStrictMod(p){
+    if (p.isMod === true) return true;
+    if (Array.isArray(p.b)) return p.b.some(x => ['broadcaster','moderator','owner'].includes(String(x).toLowerCase()));
+    return false;
+  }
   function onChat(user, text, isMod){
     const t = (text || '').trim().toLocaleLowerCase('tr');
     if (/^!(topik|top|katıl|katil|play)\b/.test(t)) addPlayer(user);
     else if (/^!(başlat|baslat)\b/.test(t) && isMod && phase === 'join' && players.length) startRace();
   }
 
-  // ---------- Kick Bağlantısı (Yerel Aktarıcı) ----------
   let relayWs = null;
   function connectRelay(){
-    log('aktarıcıya bağlanılıyor: ' + RELAY_URL);
-    try { relayWs = new WebSocket(RELAY_URL); }
-    catch(e){ connError = 'aktarıcı yok'; setTimeout(connectRelay, 3000); return; }
-
-    relayWs.onopen = () => { log('aktarıcı bağlandı'); connError = 'Kick bekleniyor'; };
+    try { relayWs = new WebSocket(RELAY_URL); } catch(e){ connError = 'aktarıcı yok'; setTimeout(connectRelay, 3000); return; }
+    relayWs.onopen = () => { connError = 'Kick bekleniyor'; };
     relayWs.onmessage = (ev) => {
       let p; try { p = JSON.parse(ev.data); } catch { return; }
-      if (p.durum){
-        log(p.durum);
-        connected = !p.hata && /bağlandı|dinleniyor/i.test(p.durum);
-        connError = p.hata ? 'Kick bağlantı hatası' : (connected ? '' : 'Kick bekleniyor');
-        return;
-      }
-      if (p.u && p.m !== undefined){
-        connected = true; connError = '';
-        log('mesaj: ' + p.u + ': ' + String(p.m).slice(0, 30));
-        onChat(p.u, p.m, Boolean(p.isMod ?? p.r));
-      }
+      if (p.durum){ connected = !p.hata && /bağlandı|dinleniyor/i.test(p.durum); connError = p.hata ? 'Kick bağlantı hatası' : (connected ? '' : 'Kick bekleniyor'); return; }
+      if (p.u && p.m !== undefined){ connected = true; connError = ''; onChat(p.u, p.m, isStrictMod(p)); }
     };
-    relayWs.onclose = () => { connected = false; connError = 'aktarıcı kapalı'; log('aktarıcı kapandı'); setTimeout(connectRelay, 3000); };
+    relayWs.onclose = () => { connected = false; connError = 'aktarıcı kapalı'; setTimeout(connectRelay, 3000); };
     relayWs.onerror = () => { connected = false; try { relayWs.close(); } catch {} };
   }
 
-  // ---------- Test Modu ----------
   const BOT = ['bahoxxx','Amigo1453','mertodbas','silcakoltir','burak_s','e_kursat','NuriKilligil','delininkaseti','asenatskr','gece_kusu','kral34','minnos','turbo06','pofuduk','Elfsec','anildegil'];
-  function seedTest(){
-    const n = 9 + Math.floor(Math.random() * 7);
-    BOT.slice().sort(() => Math.random() - 0.5).slice(0, n).forEach((b, i) => setTimeout(() => onChat(b, '!topik', false), i * 500));
-  }
+  function seedTest(){ const n = 9 + Math.floor(Math.random()*7); BOT.slice().sort(() => Math.random()-.5).slice(0,n).forEach((b,i) => setTimeout(() => onChat(b,'!topik',false), i*500)); }
 
   if (DEBUG){ buildTrack(); showBox(); }
   if (TEST) setTimeout(seedTest, 800); else connectRelay();

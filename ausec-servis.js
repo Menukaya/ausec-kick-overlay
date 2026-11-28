@@ -1,19 +1,19 @@
-// AUSEC Kick Yayın Paketi - Tek Servis (Aktarıcı + OBS Sunucusu + Panel + Güncelleyici)
+// AUSEC Kick Yayın Paketi - Tek Servis (Aktarıcı + OBS Sunucusu + Panel + ByNoGame + Güncelleyici)
 const http = require("http");
 const fs = require("fs");
 const path = require("path");
 const { randomUUID } = require("crypto");
 
-
 const DIZIN = __dirname;
 const AYAR_YOL = path.join(DIZIN, "ayarlar.json");
 const VARSAYILAN_AYAR = {
-  surum: "1.0.0",
+  surum: "1.1.0",
   port: 8787,
   kanal_adi: "ausec",
   chatroom_id: "25980531",
   kanal_id: "",
-  guncelleme_url: ""
+  guncelleme_url: "",
+  streamlabs_token: ""
 };
 
 function ayarOku() {
@@ -98,7 +98,9 @@ if (process.argv.includes("--guncelle")) {
     });
   return;
 }
+
 const WebSocket = require("ws");
+
 // Komut satırından geçici Chatroom/Kanal ID verildiyse üzerine yaz
 const cliArgs = process.argv.slice(2).filter((a) => !a.startsWith("--"));
 if (cliArgs[0] && /^\d+$/.test(cliArgs[0])) AYAR.chatroom_id = cliArgs[0];
@@ -112,6 +114,10 @@ let sonDurum = { durum: "Başlatılıyor...", hata: false };
 let aktifKickWs = null;
 let yenidenBaglanTimer = null;
 let baglantiDeniyor = false;
+const ist = { sohbet: 0, olay: 0 };
+let kanalSorgulandi = "";
+let tanimsizSayac = 0;
+let slDurum = "Kapalı";
 
 function logEkle(tur, metin) {
   const saat = new Date().toLocaleTimeString("tr-TR");
@@ -155,7 +161,14 @@ function govdeOku(req) {
 // ============================================================================
 // HTTP + WEBSOCKET SUNUCUSU (TEK PORT: 8787)
 // ============================================================================
+const YEREL = /^(localhost|127\.0\.0\.1)(:\d+)?$/i;
 const server = http.createServer(async (req, res) => {
+  // Başka bir web sitesi panel API'lerini (ayar, güncelleme) tetikleyemesin
+  const kaynak = req.headers.origin;
+  if (!YEREL.test(req.headers.host || "") || (kaynak && !YEREL.test(kaynak.replace(/^https?:\/\//, "")))) {
+    res.writeHead(403, { "Content-Type": "text/plain; charset=utf-8" });
+    return res.end("Yasak");
+  }
   const parsed = new URL(req.url, "http://localhost");
   const p = decodeURIComponent(parsed.pathname);
 
@@ -165,7 +178,9 @@ const server = http.createServer(async (req, res) => {
     return res.end(JSON.stringify({
       ayar: AYAR,
       durum: sonDurum,
+      bynogameDurum: slDurum,
       bagliIstemci: wss ? wss.clients.size : 0,
+      istatistik: ist,
       loglar: loglar.slice(-30)
     }));
   }
@@ -176,10 +191,12 @@ const server = http.createServer(async (req, res) => {
       kanal_adi: String(b.kanal_adi || "").trim(),
       chatroom_id: String(b.chatroom_id || "").trim(),
       kanal_id: String(b.kanal_id || "").trim(),
-      guncelleme_url: String(b.guncelleme_url || "").trim()
+      guncelleme_url: String(b.guncelleme_url || "").trim(),
+      streamlabs_token: String(b.streamlabs_token !== undefined ? b.streamlabs_token : (AYAR.streamlabs_token || "")).trim()
     });
     logEkle("AYAR", `Ayarlar kaydedildi (Oda: ${AYAR.chatroom_id || "-"}, Kanal: ${AYAR.kanal_adi || "-"})`);
     kickYenidenBaglan();
+    streamlabsBaglan();
     res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
     return res.end(JSON.stringify({ ok: true, ayar: AYAR }));
   }
@@ -193,11 +210,11 @@ const server = http.createServer(async (req, res) => {
     if (tur === "abone") yay({ tip: "abone", kullanici: isim, ay: miktar || 1 });
     else if (tur === "hediye") yay({ tip: "hediye", kullanici: isim, adet: miktar || 5 });
     else if (tur === "kicks") yay({ tip: "kicks", kullanici: isim, miktar: miktar || 250 });
-    else if (tur === "bagis") yay({ tip: "bagis", kullanici: isim, miktar: miktar || 100 });
+    else if (tur === "bagis") yay({ tip: "bagis", kullanici: isim, miktar: miktar || 100, tutarMetin: (miktar || 100) + " TL", mesaj: "İyi yayınlar kral!" });
     else if (tur === "takip") yay({ tip: "takip", kullanici: isim });
-    else if (tur === "halay") yay({ u: isim, m: "!halay", r: true, isMod: false });
-    else if (tur === "topik") yay({ u: isim, m: "!topik", r: false, isMod: false });
-    else if (tur === "topik_baslat") yay({ u: "Ausec", m: "!başlat", r: true, isMod: true });
+    else if (tur === "halay") yay({ u: isim, m: "!halay", r: true, b: ["subscriber"], isMod: false });
+    else if (tur === "topik") yay({ u: isim, m: "!topik", r: false, b: [], isMod: false });
+    else if (tur === "topik_baslat") yay({ u: "Ausec", m: "!başlat", r: true, b: ["broadcaster"], isMod: true });
 
     logEkle("TEST", `Test tetiklendi: ${tur} (${isim})`);
     res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
@@ -285,21 +302,32 @@ async function post(yol, govde) {
 }
 
 async function kanalBilgisiDene() {
-  if (!AYAR.kanal_adi || (AYAR.chatroom_id && AYAR.kanal_id)) return;
+  if (!AYAR.kanal_adi || kanalSorgulandi === AYAR.kanal_adi) return;
+  kanalSorgulandi = AYAR.kanal_adi;
   try {
     const r = await fetch("https://kick.com/api/v2/channels/" + encodeURIComponent(AYAR.kanal_adi), {
       headers: { "User-Agent": UA, Accept: "application/json" }
     });
-    if (!r.ok) return;
+    if (!r.ok) {
+      logEkle("UYARI", `Kanal bilgisi otomatik alınamadı (HTTP ${r.status}). Chatroom ID'nin doğruluğunu panelden kontrol edin.`);
+      return;
+    }
     const j = await r.json();
+    const gercekOda = j.chatroom?.id ? String(j.chatroom.id) : "";
+    const gercekKanal = j.id ? String(j.id) : "";
     const guncel = {};
-    if (!AYAR.chatroom_id && j.chatroom?.id) guncel.chatroom_id = String(j.chatroom.id);
-    if (!AYAR.kanal_id && j.id) guncel.kanal_id = String(j.id);
+    if (gercekOda && gercekOda !== AYAR.chatroom_id) {
+      logEkle("UYARI", `Chatroom ID yanlıştı (${AYAR.chatroom_id || "boş"}), Kick'in verdiği ${gercekOda} kullanılıyor.`);
+      guncel.chatroom_id = gercekOda;
+    }
+    if (gercekKanal && gercekKanal !== AYAR.kanal_id) guncel.kanal_id = gercekKanal;
     if (Object.keys(guncel).length) {
       AYAR = ayarKaydet(guncel);
-      logEkle("KICK", `Kanal bilgileri otomatik bulundu (Chatroom: ${AYAR.chatroom_id}, Kanal: ${AYAR.kanal_id})`);
+      logEkle("KICK", `Kanal bilgileri güncellendi (Chatroom: ${AYAR.chatroom_id}, Kanal: ${AYAR.kanal_id})`);
     }
-  } catch {}
+  } catch (e) {
+    logEkle("UYARI", "Kanal bilgisi alınamadı: " + e.message);
+  }
 }
 
 function olayIsle(rawEvent, rawData) {
@@ -312,27 +340,30 @@ function olayIsle(rawEvent, rawData) {
     // 1. Sohbet Mesajı
     if ((!evName || evName.includes("ChatMessageEvent")) && v.content != null && v.sender) {
       const badges = v.sender.identity?.badges || [];
-      const isMod = badges.some((b) => {
-        const t = String(b.type || b.text || "").toLowerCase();
-        return t === "broadcaster" || t === "moderator" || t === "owner";
-      });
+      const b = badges.map((x) => String(x.type || x.text || "").toLowerCase());
+      const isMod = b.some((t) => t === "broadcaster" || t === "moderator" || t === "owner");
       const r = badges.length > 0;
       const u = v.sender.username;
       const m = String(v.content);
-      yay({ u, m, r, isMod });
+      yay({ u, m, r, b, isMod });
+      if (++ist.sohbet === 1) {
+        logEkle("KICK", "✓ İlk sohbet mesajı alındı: chatroom ID doğru, abonelik olayları da bu hattan gelir.");
+      }
       return true;
     }
 
-    // Sohbet dışındaki tüm Kick olaylarını logla (teşhis için çok değerli)
+    // Sohbet dışındaki tüm Kick olaylarını logla
     if (evName) {
+      ist.olay++;
       logEkle("OLAY", evName + " -> " + JSON.stringify(v).slice(0, 220));
     }
 
     // NOT: Halay ekranının çökmemesi için abone/hediye/kicks/takip olaylarında
-    // "u" yerine "kullanici" alanı kullanılır (para-yagmuru.html ikisini de okur).
+    // "u" yerine "kullanici" alanı kullanılır.
 
     // 2. Hediye Abonelik
-    if (/gift.*sub|luckyusers|giftedsubscription/i.test(evName)) {
+    if (/luckyusers/i.test(evName)) return false; // GiftedSubscriptions ile aynı hediyeyi ikinci kez bildirirdi
+    if (/gift.*sub/i.test(evName)) {
       const isim = v.gifter_username || v.gifter?.username || v.username || v.sender?.username || "Biri";
       const adet = Array.isArray(v.gifted_usernames)
         ? v.gifted_usernames.length
@@ -365,7 +396,7 @@ function olayIsle(rawEvent, rawData) {
     }
 
     // 6. Diğer Bağış / Tip
-    if (/donat|tip/i.test(evName)) {
+    if (/donat|tipped/i.test(evName)) {
       const isim = v.sender?.username || v.username || v.name || "Biri";
       const miktar = Number(v.amount || v.value) || 0;
       yay({ tip: "bagis", kullanici: isim, miktar });
@@ -387,6 +418,10 @@ function paketCoz(d) {
       const evAd = inner?.event || pub.event || d.push.channel || "";
       const payload = inner?.data !== undefined ? inner.data : inner;
       if (olayIsle(evAd, payload)) return;
+      if (!inner?.event && !pub.event && tanimsizSayac++ < 15) {
+        logEkle("PAKET", `Tanınmayan paket (${d.push.channel}): ` + JSON.stringify(pub.data).slice(0, 200));
+      }
+      return;
     }
     olayIsle(d.event || d.channel || "", d.data !== undefined ? d.data : d);
   } catch {}
@@ -396,7 +431,7 @@ function kickYenidenBaglan() {
   clearTimeout(yenidenBaglanTimer);
   baglantiDeniyor = false;
   if (aktifKickWs) {
-    try { aktifKickWs.removeAllListeners(); aktifKickWs.close(); } catch {}
+    try { aktifKickWs.removeAllListeners(); aktifKickWs.on("error", () => {}); aktifKickWs.close(); } catch {}
     aktifKickWs = null;
   }
   kickBaglan();
@@ -431,15 +466,23 @@ async function kickBaglan() {
 
   try {
     durumGuncelle("Kick realtime bağlantısı kuruluyor...");
-    const cevap = await post(KANAL ? `/channels/${KANAL}/chat/connection` : "/connection", {
+    const istek = {
       client: { id, type: "web" },
       capabilities: { accepted_providers: [{ provider: "centrifugo" }, { provider: "pusher" }] }
-    });
+    };
+    let cevap;
+    try {
+      cevap = await post(KANAL ? `/channels/${KANAL}/chat/connection` : "/connection", istek);
+    } catch (e) {
+      if (!KANAL) throw e;
+      logEkle("UYARI", `Kanala özel bağlantı alınamadı (${e.message}), genel bağlantı deneniyor`);
+      cevap = await post("/connection", istek);
+    }
     const c = cevap.connections?.[0];
     if (!c) throw new Error("Kick bağlantı bilgisi vermedi");
 
-    const kanallar = [`chatrooms.${ODA}.v2`];
-    if (KANAL) kanallar.push(`channel.${KANAL}`);
+    const kanallar = [`chatrooms.${ODA}.v2`, `chatroom_${ODA}`];
+    if (KANAL) kanallar.push(`channel.${KANAL}`, `channel_${KANAL}`);
 
     let ws;
     if (c.provider === "centrifugo") {
@@ -456,13 +499,13 @@ async function kickBaglan() {
           let m;
           try { m = JSON.parse(satir); } catch { return; }
 
-          // Centrifugo sunucu pingi ({}) gelince anında pong ({}) dön (3005 önler)
           if (Object.keys(m).length === 0 || m.ping !== undefined) {
             if (ws.readyState === WebSocket.OPEN) ws.send("{}");
             return;
           }
           if (m.error) {
-            logEkle("UYARI", `Kick mesajı: ${m.error.code} ${m.error.message}`);
+            logEkle("UYARI", `Kick mesajı (#${m.id} ${kanallar[m.id - 2] || "bağlantı"}): ${m.error.code} ${m.error.message}`);
+            if (m.id === 2) durumGuncelle("Sohbet akışına abone olunamadı: " + m.error.message, true);
             return;
           }
           if (m.connect) {
@@ -475,8 +518,8 @@ async function kickBaglan() {
             durumGuncelle(`Bağlandı, chatroom #${ODA} dinleniyor`);
             return;
           }
-          if (m.id === 3 && m.subscribe) {
-            logEkle("KICK", `Kanal olay kanalı (#${KANAL}) aktif`);
+          if (m.id > 2 && m.subscribe) {
+            logEkle("KICK", `Akış aktif: ${kanallar[m.id - 2]}`);
             return;
           }
           if (m.push?.pub) paketCoz(m);
@@ -522,6 +565,90 @@ async function kickBaglan() {
 }
 
 // ============================================================================
+// BYNOGAME BAĞIŞ KÖPRÜSÜ (Streamlabs Socket API - Ek Paket Gerekmez)
+// ============================================================================
+let slWs = null;
+let slPing = null;
+let slTimer = null;
+
+function streamlabsBaglan() {
+  clearTimeout(slTimer);
+  clearInterval(slPing);
+  if (slWs) {
+    try { slWs.removeAllListeners(); slWs.on("error", () => {}); slWs.close(); } catch {}
+    slWs = null;
+  }
+
+  const token = String(AYAR.streamlabs_token || "").trim();
+  if (!token) {
+    slDurum = "Token yok";
+    return;
+  }
+
+  slDurum = "Bağlanıyor...";
+  const url = `wss://sockets.streamlabs.com/socket.io/?token=${encodeURIComponent(token)}&EIO=3&transport=websocket`;
+  const ws = new WebSocket(url);
+  slWs = ws;
+  let kapandi = false;
+
+  const yenidenDene = (neden) => {
+    if (kapandi) return;
+    kapandi = true;
+    clearInterval(slPing);
+    if (slWs === ws) slWs = null;
+    slDurum = "Koptu";
+    logEkle("BYNOGAME", neden + " - 5 sn sonra tekrar bağlanılacak");
+    slTimer = setTimeout(streamlabsBaglan, 5000);
+  };
+
+  ws.on("open", () => {
+    slDurum = "Bağlı";
+    logEkle("BYNOGAME", "✓ Streamlabs / ByNoGame bağış hattı bağlandı");
+  });
+
+  ws.on("message", (raw) => {
+    const s = raw.toString();
+    if (s.startsWith("0")) {
+      try {
+        const info = JSON.parse(s.slice(1));
+        clearInterval(slPing);
+        slPing = setInterval(() => {
+          if (ws.readyState === WebSocket.OPEN) ws.send("2");
+        }, info.pingInterval || 25000);
+      } catch {}
+      return;
+    }
+    if (s.startsWith("44")) {
+      slDurum = "Token Hatalı";
+      logEkle("HATA", "ByNoGame/Streamlabs token reddedildi: " + s.slice(2, 140));
+      return;
+    }
+    if (!s.startsWith("42")) return;
+
+    try {
+      const [ev, payload] = JSON.parse(s.slice(2));
+      if (ev !== "event" || !payload || payload.type !== "donation") return;
+      const liste = Array.isArray(payload.message) ? payload.message : [payload.message];
+      liste.forEach((d) => {
+        if (!d) return;
+        const isim = d.from || d.name || "Anonim";
+        const miktar = Number(d.amount) || 0;
+        const tutarMetin = d.formatted_amount || (miktar ? miktar + " TL" : "");
+        const mesaj = String(d.message || "").trim();
+        ist.olay++;
+        logEkle("BYNOGAME", `Bağış geldi: ${isim} - ${tutarMetin}${mesaj ? " (" + mesaj.slice(0, 60) + ")" : ""}`);
+        yay({ tip: "bagis", kullanici: isim, miktar, tutarMetin, mesaj });
+      });
+    } catch (e) {
+      logEkle("HATA", "ByNoGame paketi çözülemedi: " + e.message);
+    }
+  });
+
+  ws.on("close", (kod) => yenidenDene(`Bağış hattı kapandı (${kod})`));
+  ws.on("error", (e) => yenidenDene("Bağış hattı hatası: " + e.message));
+}
+
+// ============================================================================
 // WEB KONTROL PANELİ (http://localhost:8787)
 // ============================================================================
 const PANEL_HTML = `<!doctype html>
@@ -532,7 +659,7 @@ const PANEL_HTML = `<!doctype html>
 <style>
   *{box-sizing:border-box;margin:0;padding:0}
   body{font-family:"Segoe UI",Arial,sans-serif;background:#0b0f14;color:#eef2f6;padding:22px;max-width:980px;margin:0 auto}
-  h1{font-size:22px;color:#53fc18;display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+  h1{font-size:22px;color:#53fc18;display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;gap:10px;flex-wrap:wrap}
   .pill{font-size:12px;padding:4px 10px;border-radius:999px;background:#1e293b;color:#cbd5e1;font-weight:700}
   .pill.ok{background:#14532d;color:#4ade80}
   .pill.err{background:#7f1d1d;color:#fca5a5}
@@ -550,7 +677,7 @@ const PANEL_HTML = `<!doctype html>
   .btns{display:flex;flex-wrap:wrap;gap:8px}
   label{display:block;font-size:12px;color:#94a3b8;margin-bottom:4px;margin-top:8px}
   input{width:100%;padding:8px 10px;border-radius:8px;border:1px solid #334155;background:#0c1118;color:#fff;font-size:13px}
-  #logs{background:#080b10;border:1px solid #1e293b;border-radius:10px;padding:10px;height:210px;overflow-y:auto;font:12px/1.5 Consolas,monospace;color:#cbd5e1}
+  #logs{background:#080b10;border:1px solid #1e293b;border-radius:10px;padding:10px;height:260px;overflow-y:auto;font:12px/1.5 Consolas,monospace;color:#cbd5e1}
   .msg{font-size:12px;color:#53fc18;margin-top:8px;min-height:16px}
 </style>
 </head>
@@ -609,13 +736,15 @@ const PANEL_HTML = `<!doctype html>
 
   <div class="grid">
     <div class="card">
-      <h2>Kanal &amp; Güncelleme Ayarları</h2>
+      <h2>Kanal, Bağış &amp; Güncelleme Ayarları</h2>
       <label>Kick Kanal Adı</label>
       <input id="aKanal">
       <label>Chatroom ID</label>
       <input id="aOda">
-      <label>Kanal ID (isteğe bağlı, otomatik bulunur)</label>
+      <label>Kanal ID (KICKs için gerekli, otomatik bulunur)</label>
       <input id="aKanalId">
+      <label>ByNoGame / Streamlabs Socket Token (Bağışlar için)</label>
+      <input id="aSl" type="password" placeholder="Streamlabs API Settings > Socket API Token">
       <label>Uzaktan Güncelleme Linki (GitHub Raw Klasörü)</label>
       <input id="aGuncel" placeholder="https://raw.githubusercontent.com/kullanici/repo/main">
       <div class="btns" style="margin-top:12px">
@@ -659,6 +788,7 @@ const PANEL_HTML = `<!doctype html>
       kanal_adi: document.getElementById('aKanal').value,
       chatroom_id: document.getElementById('aOda').value,
       kanal_id: document.getElementById('aKanalId').value,
+      streamlabs_token: document.getElementById('aSl').value,
       guncelleme_url: document.getElementById('aGuncel').value
     };
     fetch('/api/ayar', {
@@ -666,7 +796,7 @@ const PANEL_HTML = `<!doctype html>
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body)
     }).then(function(r) { return r.json(); }).then(function() {
-      document.getElementById('ayarMsg').textContent = 'Ayarlar kaydedildi ve Kick bağlantısı yenilendi.';
+      document.getElementById('ayarMsg').textContent = 'Ayarlar kaydedildi, Kick ve ByNoGame bağlantıları yenilendi.';
     });
   }
   function guncelleUI() {
@@ -682,7 +812,13 @@ const PANEL_HTML = `<!doctype html>
   }
   function yenile() {
     fetch('/api/durum').then(function(r) { return r.json(); }).then(function(d) {
-      document.getElementById('ver').textContent = 'v' + (d.ayar.surum || '1.0.0') + ' · OBS: ' + d.bagliIstemci;
+      var st = d.istatistik || {};
+      document.getElementById('ver').textContent =
+        'v' + (d.ayar.surum || '1.1.0') +
+        ' · OBS: ' + d.bagliIstemci +
+        ' · sohbet: ' + (st.sohbet || 0) +
+        ' · olay: ' + (st.olay || 0) +
+        ' · ByNoGame: ' + (d.bynogameDurum || '-');
       var pill = document.getElementById('durumPill');
       pill.textContent = d.durum.durum || 'Bekleniyor';
       pill.className = 'pill ' + (d.durum.hata ? 'err' : (/bağlandı|dinleniyor/i.test(d.durum.durum || '') ? 'ok' : ''));
@@ -690,6 +826,7 @@ const PANEL_HTML = `<!doctype html>
         document.getElementById('aKanal').value = d.ayar.kanal_adi || '';
         document.getElementById('aOda').value = d.ayar.chatroom_id || '';
         document.getElementById('aKanalId').value = d.ayar.kanal_id || '';
+        document.getElementById('aSl').value = d.ayar.streamlabs_token || '';
         document.getElementById('aGuncel').value = d.ayar.guncelleme_url || '';
         formYuklendi = true;
       }
@@ -728,4 +865,5 @@ server.listen(PORT, "127.0.0.1", () => {
   console.log(` Para Yağmuru   : http://localhost:${PORT}/para?ses=1`);
   console.log("====================================================");
   kickBaglan();
+  streamlabsBaglan();
 });

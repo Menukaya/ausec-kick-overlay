@@ -1,12 +1,16 @@
 {
-  "surum": "1.0.0",
-  "not": "Ilk surum - Halay, 6 haritali Topik ve 100 AUSEC Para Yagmuru",
+  "surum": "1.1.0",
+  "not": "4 ozel banknot alerti, Topik MSN bildirimi, mod guvenlik yamasi ve ByNoGame destegi",
   "dosyalar": [
     "ausec-servis.js",
     "halay.html",
     "topik.html",
     "para-yagmuru.html",
     "ausec ama para.jpg",
+    "abone.jpg",
+    "hediyeabone.jpg",
+    "kicks.jpg",
+    "bagis.jpg",
     "README.txt"
   ]
 }
